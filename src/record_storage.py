@@ -143,9 +143,8 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
     """OrderedDict {part_name: Trimesh} for the given per-row depth (inches).
 
     seven_inch_cols: iterable of column indices (0..CUBBIES_PER_TIER-1) whose
-    front & back cubbies are fitted out for 7" 45s — a raised floor lifts the
-    smaller sleeves so their tops line up with the 12" records, and the
-    bordering dividers are made taller to contain them.
+    cubbies are sized for 7" 45s — narrower bays holding smaller sleeves that
+    sit on the same floor as the 12" LPs (bottom edges aligned).
     """
     D = overall_depth(row_depth)
     div_len = row_depth                        # dividers span the full row depth
@@ -195,58 +194,28 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
             divs.append(x + T / 2); x += T
     centers = [(a + b) / 2 for a, b in cols]
 
-    tilt = np.cos(np.radians(RECORD_LEAN))
-    lift = (RECORD_SIZE - RECORD7_SIZE) * tilt       # raise so 7" tops match 12"
-    front7_floor = BOT_Z1 + lift
-    back7_floor = PLATFORM_Z1 + lift
-
-    # dividers — taller where they border a 7" section so the 45s stay put
+    # dividers — uniform height. The 7" columns are simply narrower, and the
+    # 45s just shorter; they share the same floor as the LPs.
     for i, xc in enumerate(divs, start=1):
-        borders7 = (i - 1 in seven) or (i in seven)
-        ftop = (front7_floor if borders7 else BOT_Z1) + DIV_H
-        btop = (back7_floor if borders7 else PLATFORM_Z1) + DIV_H
         p[f"front_divider_{i}"] = plate(xc - T / 2, xc + T / 2,
                                         FRONT_INNER, FRONT_INNER + div_len,
-                                        BOT_Z1, ftop)
+                                        BOT_Z1, BOT_Z1 + DIV_H)
         p[f"back_divider_{i}"] = plate(xc - T / 2, xc + T / 2,
                                        BACK_INNER - div_len, BACK_INNER,
-                                       PLATFORM_Z1, btop)
-
-    # raised floor + sub-floor support + front retaining lip for each 7" bay.
-    # The lip rises above the raised floor so the elevated 45s can't slide out
-    # (the main front panel / shelf divider now sit below the raised floor).
-    for c in seven:
-        bx0, bx1 = cols[c]
-        # front bay
-        p[f"seven_riser_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
-            FRONT_INNER + T, BOT_Z1, front7_floor - T, WOOD_STRUCT)
-        p[f"seven_floor_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
-            FRONT_INNER + div_len, front7_floor - T, front7_floor, WOOD_STRUCT)
-        p[f"seven_lip_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
-            FRONT_INNER + T, front7_floor, front7_floor + DIV_H, WOOD_STRUCT)
-        # back bay
-        p[f"seven_riser_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
-            PLATFORM_FRONT + T, PLATFORM_Z1, back7_floor - T, WOOD_STRUCT)
-        p[f"seven_floor_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
-            BACK_INNER, back7_floor - T, back7_floor, WOOD_STRUCT)
-        p[f"seven_lip_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
-            PLATFORM_FRONT + T, back7_floor, back7_floor + DIV_H, WOOD_STRUCT)
+                                       PLATFORM_Z1, PLATFORM_Z1 + DIV_H)
 
     # --- Records leaning in each cubby (optional) ------------------------
+    # 7" 45s sit on the SAME floor as the 12" LPs (bottom edges aligned); they
+    # are simply smaller, so no raised floor or extra lip is needed — the front
+    # panel and shelf divider retain them exactly like the LPs.
     if with_records:
         for k, cx in enumerate(centers):
-            is7 = k in seven
-            size = RECORD7_SIZE if is7 else RECORD_SIZE
-            fz = front7_floor if is7 else BOT_Z1
-            bz = back7_floor if is7 else PLATFORM_Z1
-            # 7" records start just behind their front lip
-            fy = FRONT_INNER + (T + 0.3 if is7 else 0.5)
-            by = PLATFORM_FRONT + (T + 0.3 if is7 else 0.5)
+            size = RECORD7_SIZE if k in seven else RECORD_SIZE
             p[f"records_front_{k+1}"] = record_stack(
-                cx, fy, fz, RECORDS_PER_CUBBY,
+                cx, FRONT_INNER + 0.5, BOT_Z1, RECORDS_PER_CUBBY,
                 RECORD_COLORS[k % len(RECORD_COLORS)], size)
             p[f"records_back_{k+1}"] = record_stack(
-                cx, by, bz, RECORDS_PER_CUBBY,
+                cx, PLATFORM_FRONT + 0.5, PLATFORM_Z1, RECORDS_PER_CUBBY,
                 RECORD_COLORS[(k + 4) % len(RECORD_COLORS)], size)
 
     # --- 2x2 support frame under the bottom (fills the 1 1/2" recess) -----
