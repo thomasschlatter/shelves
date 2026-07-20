@@ -63,7 +63,7 @@ def sheet_pieces(parts):
     return out
 
 
-def draw(parts, title, fname, unit="in"):
+def draw(parts, title, fname, unit="in", show_wedge=True):
     pieces = sheet_pieces(parts)
     placed, nsheets = _pack_tagged([dict(p) for p in pieces])
 
@@ -91,7 +91,7 @@ def draw(parts, title, fname, unit="in"):
             x, y, L, Sh = pc["x"], pc["y"], pc["long"], pc["short"]
             ax.add_patch(Rectangle((x, y), L, Sh, facecolor=color_by[base],
                                    ec="#555", lw=0.8))
-            if pc["wedge"]:  # show the wedge cut line on the side blanks
+            if pc["wedge"] and show_wedge:  # wedge cut line on the side blanks
                 ax.add_line(Line2D([x, x + L], [y, y + Sh],
                                    color="#c0392b", lw=1.1, ls="--"))
             label = pc["name"].replace("_", " ")

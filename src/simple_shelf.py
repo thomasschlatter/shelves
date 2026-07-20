@@ -102,9 +102,11 @@ def emit(slug, label, front_h, back_h, depth=DEPTH, rec_n=REC_N, bays=BAYS):
     bv.write_viewer(rec, f"{label} · {W:.2f} × {depth} × {top:.1f} in",
                     f"viewer_{slug}.html")
     render.hero(rec, 26, -60, f"hero_{slug}.png")
-    cutsheet.draw(parts, f'{label} — Cut Diagram', f"cut_diagram_{slug}.png", unit="in")
+    wedge = front_h != back_h            # flat sides are plain rectangles
+    cutsheet.draw(parts, f'{label} — Cut Diagram', f"cut_diagram_{slug}.png",
+                  unit="in", show_wedge=wedge)
     cutsheet.draw(parts, f'{label} — Cut Diagram (cm)',
-                  f"cut_diagram_{slug}_cm.png", unit="cm")
+                  f"cut_diagram_{slug}_cm.png", unit="cm", show_wedge=wedge)
     with open(os.path.join(here, "..", "plans", f"cut_list_{slug}.txt"),
               "w", encoding="utf-8") as f:
         f.write(cutsheet.cut_list_text(
