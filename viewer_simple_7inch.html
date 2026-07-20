@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vinyl Record Storage — Exploded Viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #panel {
+    position: fixed; top: 14px; left: 14px; width: 268px; max-height: calc(100% - 28px);
+    background: rgba(20,22,26,.82); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.09); border-radius: 14px;
+    color: #e9edf2; padding: 16px 16px 12px; display: flex; flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  #panel h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .2px; }
+  #panel .sub { font-size: 11px; color: #97a1ad; margin-bottom: 14px; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 9px 0; font-size: 12px; }
+  .row label { flex: 1; color: #c4ccd4; }
+  input[type=range] { width: 100%; accent-color: #d9a066; }
+  .val { font-variant-numeric: tabular-nums; color: #d9a066; width: 30px; text-align: right; }
+  .btns { display: flex; gap: 6px; margin: 10px 0 4px; }
+  button {
+    flex: 1; font-size: 11px; padding: 6px 4px; cursor: pointer; color: #e9edf2;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 8px; transition: background .15s;
+  }
+  button:hover { background: rgba(255,255,255,.14); }
+  button.active { background: #d9a066; color: #201a12; border-color: #d9a066; }
+  .parts { margin-top: 8px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,.09);
+    padding-top: 8px; }
+  .parts::-webkit-scrollbar { width: 7px; }
+  .parts::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 4px; }
+  .pitem { display: flex; align-items: center; gap: 7px; font-size: 11.5px; padding: 3px 4px;
+    border-radius: 6px; cursor: pointer; color: #c4ccd4; }
+  .pitem:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .pitem.off { opacity: .38; }
+  .pitem .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .pitem .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pitem .iso { font-size: 10px; color: #7f8a96; opacity: 0; }
+  .pitem:hover .iso { opacity: 1; }
+  #hint { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: #8a94a0; background: rgba(20,22,26,.7); padding: 5px 12px;
+    border-radius: 20px; border: 1px solid rgba(255,255,255,.08); }
+  #tag { position: fixed; bottom: 12px; right: 14px; font-size: 10.5px; color: #6b7580; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="panel">
+  <h1>Vinyl Record Storage</h1>
+  <div class="sub">Simple 4× 7" bin · 35.75 × 9.0 × 8.0 in · 12 parts</div>
+  <div class="row">
+    <label>Explode</label>
+    <input id="explode" type="range" min="0" max="100" value="0">
+    <span class="val" id="explodeVal">0</span>
+  </div>
+  <div class="btns">
+    <button id="btnRotate">Auto-rotate</button>
+    <button id="btnWire">Wireframe</button>
+  </div>
+  <div class="btns">
+    <button id="btnRecords" class="active">Records</button>
+    <button id="btnLegs">Toggle legs</button>
+  </div>
+  <div class="btns">
+    <button id="btnAll">Show all</button>
+    <button id="btnReset">Reset view</button>
+  </div>
+  <div class="parts" id="parts"></div>
+</div>
+<div id="hint">drag to orbit · scroll to zoom · right-drag to pan · click a part name to isolate</div>
+<div id="tag">Jen Woodhouse plan · parametric reconstruction</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const PARTS = [{"name": "side_left", "color": "#966e44", "positions": [0.0, 0.0, -0.0, 0.0, 0.0, -9.0, 0.0, 8.0, -9.0, 0.0, 4.0, -0.0, 0.75, 0.0, -0.0, 0.75, 0.0, -9.0, 0.75, 8.0, -9.0, 0.75, 4.0, -0.0], "indices": [3, 1, 0, 3, 2, 1, 4, 5, 7, 5, 6, 7, 5, 4, 1, 1, 4, 0, 6, 5, 2, 2, 5, 1, 4, 7, 0, 0, 7, 3, 7, 6, 3, 3, 6, 2]}, {"name": "side_right", "color": "#966e44", "positions": [35.0, 0.0, -0.0, 35.0, 0.0, -9.0, 35.0, 8.0, -9.0, 35.0, 4.0, -0.0, 35.75, 0.0, -0.0, 35.75, 0.0, -9.0, 35.75, 8.0, -9.0, 35.75, 4.0, -0.0], "indices": [3, 1, 0, 3, 2, 1, 4, 5, 7, 5, 6, 7, 5, 4, 1, 1, 4, 0, 6, 5, 2, 2, 5, 1, 4, 7, 0, 0, 7, 3, 7, 6, 3, 3, 6, 2]}, {"name": "bottom", "color": "#966e44", "positions": [0.75, 0.0, -0.0, 0.75, 0.75, -0.0, 0.75, 0.0, -9.0, 0.75, 0.75, -9.0, 35.0, 0.0, -0.0, 35.0, 0.75, -0.0, 35.0, 0.0, -9.0, 35.0, 0.75, -9.0], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "back", "color": "#966e44", "positions": [0.75, 0.75, -8.25, 0.75, 8.0, -8.25, 0.75, 0.75, -9.0, 0.75, 8.0, -9.0, 35.0, 0.75, -8.25, 35.0, 8.0, -8.25, 35.0, 0.75, -9.0, 35.0, 8.0, -9.0], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "front", "color": "#966e44", "positions": [0.75, 0.75, -0.0, 0.75, 4.0, -0.0, 0.75, 0.75, -0.75, 0.75, 4.0, -0.75, 35.0, 0.75, -0.0, 35.0, 4.0, -0.0, 35.0, 0.75, -0.75, 35.0, 4.0, -0.75], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "divider_1", "color": "#966e44", "positions": [8.9375, 0.75, -0.75, 8.9375, 5.25, -0.75, 8.9375, 0.75, -8.25, 8.9375, 5.25, -8.25, 9.6875, 0.75, -0.75, 9.6875, 5.25, -0.75, 9.6875, 0.75, -8.25, 9.6875, 5.25, -8.25], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "divider_2", "color": "#966e44", "positions": [17.5, 0.75, -0.75, 17.5, 5.25, -0.75, 17.5, 0.75, -8.25, 17.5, 5.25, -8.25, 18.25, 0.75, -0.75, 18.25, 5.25, -0.75, 18.25, 0.75, -8.25, 18.25, 5.25, -8.25], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "divider_3", "color": "#966e44", "positions": [26.0625, 0.75, -0.75, 26.0625, 5.25, -0.75, 26.0625, 0.75, -8.25, 26.0625, 5.25, -8.25, 26.8125, 0.75, -0.75, 26.8125, 5.25, -0.75, 26.8125, 0.75, -8.25, 26.8125, 5.25, -8.25], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6]}, {"name": "records_1", "color": "#c43e37", "positions": [1.4062, 0.75, -1.15, 1.4062, 7.7191, -3.1484, 1.4062, 0.6894, -1.3615, 1.4062, 7.6585, -3.3598, 8.6562, 0.75, -1.15, 8.6562, 7.7191, -3.1484, 8.6562, 0.6894, -1.3615, 8.6562, 7.6585, -3.3598, 1.4062, 0.75, -1.4089, 1.4062, 7.7191, -3.4072, 1.4062, 0.6894, -1.6203, 1.4062, 7.6585, -3.6187, 8.6562, 0.75, -1.4089, 8.6562, 7.7191, -3.4072, 8.6562, 0.6894, -1.6203, 8.6562, 7.6585, -3.6187, 1.4062, 0.75, -1.6677, 1.4062, 7.7191, -3.6661, 1.4062, 0.6894, -1.8792, 1.4062, 7.6585, -3.8776, 8.6562, 0.75, -1.6677, 8.6562, 7.7191, -3.6661, 8.6562, 0.6894, -1.8792, 8.6562, 7.6585, -3.8776, 1.4062, 0.75, -1.9266, 1.4062, 7.7191, -3.925, 1.4062, 0.6894, -2.1381, 1.4062, 7.6585, -4.1364, 8.6562, 0.75, -1.9266, 8.6562, 7.7191, -3.925, 8.6562, 0.6894, -2.1381, 8.6562, 7.6585, -4.1364, 1.4062, 0.75, -2.1855, 1.4062, 7.7191, -4.1838, 1.4062, 0.6894, -2.3969, 1.4062, 7.6585, -4.3953, 8.6562, 0.75, -2.1855, 8.6562, 7.7191, -4.1838, 8.6562, 0.6894, -2.3969, 8.6562, 7.6585, -4.3953, 1.4062, 0.75, -2.4443, 1.4062, 7.7191, -4.4427, 1.4062, 0.6894, -2.6558, 1.4062, 7.6585, -4.6542, 8.6562, 0.75, -2.4443, 8.6562, 7.7191, -4.4427, 8.6562, 0.6894, -2.6558, 8.6562, 7.6585, -4.6542, 1.4062, 0.75, -2.7032, 1.4062, 7.7191, -4.7016, 1.4062, 0.6894, -2.9147, 1.4062, 7.6585, -4.913, 8.6562, 0.75, -2.7032, 8.6562, 7.7191, -4.7016, 8.6562, 0.6894, -2.9147, 8.6562, 7.6585, -4.913, 1.4062, 0.75, -2.9621, 1.4062, 7.7191, -4.9604, 1.4062, 0.6894, -3.1735, 1.4062, 7.6585, -5.1719, 8.6562, 0.75, -2.9621, 8.6562, 7.7191, -4.9604, 8.6562, 0.6894, -3.1735, 8.6562, 7.6585, -5.1719], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6, 9, 11, 8, 12, 9, 8, 8, 11, 10, 10, 12, 8, 9, 15, 11, 13, 9, 12, 13, 15, 9, 11, 15, 10, 14, 12, 10, 10, 15, 14, 14, 13, 12, 15, 13, 14, 17, 19, 16, 20, 17, 16, 16, 19, 18, 18, 20, 16, 17, 23, 19, 21, 17, 20, 21, 23, 17, 19, 23, 18, 22, 20, 18, 18, 23, 22, 22, 21, 20, 23, 21, 22, 25, 27, 24, 28, 25, 24, 24, 27, 26, 26, 28, 24, 25, 31, 27, 29, 25, 28, 29, 31, 25, 27, 31, 26, 30, 28, 26, 26, 31, 30, 30, 29, 28, 31, 29, 30, 33, 35, 32, 36, 33, 32, 32, 35, 34, 34, 36, 32, 33, 39, 35, 37, 33, 36, 37, 39, 33, 35, 39, 34, 38, 36, 34, 34, 39, 38, 38, 37, 36, 39, 37, 38, 41, 43, 40, 44, 41, 40, 40, 43, 42, 42, 44, 40, 41, 47, 43, 45, 41, 44, 45, 47, 41, 43, 47, 42, 46, 44, 42, 42, 47, 46, 46, 45, 44, 47, 45, 46, 49, 51, 48, 52, 49, 48, 48, 51, 50, 50, 52, 48, 49, 55, 51, 53, 49, 52, 53, 55, 49, 51, 55, 50, 54, 52, 50, 50, 55, 54, 54, 53, 52, 55, 53, 54, 57, 59, 56, 60, 57, 56, 56, 59, 58, 58, 60, 56, 57, 63, 59, 61, 57, 60, 61, 63, 57, 59, 63, 58, 62, 60, 58, 58, 63, 62, 62, 61, 60, 63, 61, 62]}, {"name": "records_2", "color": "#3f6a94", "positions": [9.9688, 0.75, -1.15, 9.9688, 7.7191, -3.1484, 9.9688, 0.6894, -1.3615, 9.9688, 7.6585, -3.3598, 17.2188, 0.75, -1.15, 17.2188, 7.7191, -3.1484, 17.2188, 0.6894, -1.3615, 17.2188, 7.6585, -3.3598, 9.9688, 0.75, -1.4089, 9.9688, 7.7191, -3.4072, 9.9688, 0.6894, -1.6203, 9.9688, 7.6585, -3.6187, 17.2188, 0.75, -1.4089, 17.2188, 7.7191, -3.4072, 17.2188, 0.6894, -1.6203, 17.2188, 7.6585, -3.6187, 9.9688, 0.75, -1.6677, 9.9688, 7.7191, -3.6661, 9.9688, 0.6894, -1.8792, 9.9688, 7.6585, -3.8776, 17.2188, 0.75, -1.6677, 17.2188, 7.7191, -3.6661, 17.2188, 0.6894, -1.8792, 17.2188, 7.6585, -3.8776, 9.9688, 0.75, -1.9266, 9.9688, 7.7191, -3.925, 9.9688, 0.6894, -2.1381, 9.9688, 7.6585, -4.1364, 17.2188, 0.75, -1.9266, 17.2188, 7.7191, -3.925, 17.2188, 0.6894, -2.1381, 17.2188, 7.6585, -4.1364, 9.9688, 0.75, -2.1855, 9.9688, 7.7191, -4.1838, 9.9688, 0.6894, -2.3969, 9.9688, 7.6585, -4.3953, 17.2188, 0.75, -2.1855, 17.2188, 7.7191, -4.1838, 17.2188, 0.6894, -2.3969, 17.2188, 7.6585, -4.3953, 9.9688, 0.75, -2.4443, 9.9688, 7.7191, -4.4427, 9.9688, 0.6894, -2.6558, 9.9688, 7.6585, -4.6542, 17.2188, 0.75, -2.4443, 17.2188, 7.7191, -4.4427, 17.2188, 0.6894, -2.6558, 17.2188, 7.6585, -4.6542, 9.9688, 0.75, -2.7032, 9.9688, 7.7191, -4.7016, 9.9688, 0.6894, -2.9147, 9.9688, 7.6585, -4.913, 17.2188, 0.75, -2.7032, 17.2188, 7.7191, -4.7016, 17.2188, 0.6894, -2.9147, 17.2188, 7.6585, -4.913, 9.9688, 0.75, -2.9621, 9.9688, 7.7191, -4.9604, 9.9688, 0.6894, -3.1735, 9.9688, 7.6585, -5.1719, 17.2188, 0.75, -2.9621, 17.2188, 7.7191, -4.9604, 17.2188, 0.6894, -3.1735, 17.2188, 7.6585, -5.1719], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6, 9, 11, 8, 12, 9, 8, 8, 11, 10, 10, 12, 8, 9, 15, 11, 13, 9, 12, 13, 15, 9, 11, 15, 10, 14, 12, 10, 10, 15, 14, 14, 13, 12, 15, 13, 14, 17, 19, 16, 20, 17, 16, 16, 19, 18, 18, 20, 16, 17, 23, 19, 21, 17, 20, 21, 23, 17, 19, 23, 18, 22, 20, 18, 18, 23, 22, 22, 21, 20, 23, 21, 22, 25, 27, 24, 28, 25, 24, 24, 27, 26, 26, 28, 24, 25, 31, 27, 29, 25, 28, 29, 31, 25, 27, 31, 26, 30, 28, 26, 26, 31, 30, 30, 29, 28, 31, 29, 30, 33, 35, 32, 36, 33, 32, 32, 35, 34, 34, 36, 32, 33, 39, 35, 37, 33, 36, 37, 39, 33, 35, 39, 34, 38, 36, 34, 34, 39, 38, 38, 37, 36, 39, 37, 38, 41, 43, 40, 44, 41, 40, 40, 43, 42, 42, 44, 40, 41, 47, 43, 45, 41, 44, 45, 47, 41, 43, 47, 42, 46, 44, 42, 42, 47, 46, 46, 45, 44, 47, 45, 46, 49, 51, 48, 52, 49, 48, 48, 51, 50, 50, 52, 48, 49, 55, 51, 53, 49, 52, 53, 55, 49, 51, 55, 50, 54, 52, 50, 50, 55, 54, 54, 53, 52, 55, 53, 54, 57, 59, 56, 60, 57, 56, 56, 59, 58, 58, 60, 56, 57, 63, 59, 61, 57, 60, 61, 63, 57, 59, 63, 58, 62, 60, 58, 58, 63, 62, 62, 61, 60, 63, 61, 62]}, {"name": "records_3", "color": "#deb24a", "positions": [18.5312, 0.75, -1.15, 18.5312, 7.7191, -3.1484, 18.5312, 0.6894, -1.3615, 18.5312, 7.6585, -3.3598, 25.7812, 0.75, -1.15, 25.7812, 7.7191, -3.1484, 25.7812, 0.6894, -1.3615, 25.7812, 7.6585, -3.3598, 18.5312, 0.75, -1.4089, 18.5312, 7.7191, -3.4072, 18.5312, 0.6894, -1.6203, 18.5312, 7.6585, -3.6187, 25.7812, 0.75, -1.4089, 25.7812, 7.7191, -3.4072, 25.7812, 0.6894, -1.6203, 25.7812, 7.6585, -3.6187, 18.5312, 0.75, -1.6677, 18.5312, 7.7191, -3.6661, 18.5312, 0.6894, -1.8792, 18.5312, 7.6585, -3.8776, 25.7812, 0.75, -1.6677, 25.7812, 7.7191, -3.6661, 25.7812, 0.6894, -1.8792, 25.7812, 7.6585, -3.8776, 18.5312, 0.75, -1.9266, 18.5312, 7.7191, -3.925, 18.5312, 0.6894, -2.1381, 18.5312, 7.6585, -4.1364, 25.7812, 0.75, -1.9266, 25.7812, 7.7191, -3.925, 25.7812, 0.6894, -2.1381, 25.7812, 7.6585, -4.1364, 18.5312, 0.75, -2.1855, 18.5312, 7.7191, -4.1838, 18.5312, 0.6894, -2.3969, 18.5312, 7.6585, -4.3953, 25.7812, 0.75, -2.1855, 25.7812, 7.7191, -4.1838, 25.7812, 0.6894, -2.3969, 25.7812, 7.6585, -4.3953, 18.5312, 0.75, -2.4443, 18.5312, 7.7191, -4.4427, 18.5312, 0.6894, -2.6558, 18.5312, 7.6585, -4.6542, 25.7812, 0.75, -2.4443, 25.7812, 7.7191, -4.4427, 25.7812, 0.6894, -2.6558, 25.7812, 7.6585, -4.6542, 18.5312, 0.75, -2.7032, 18.5312, 7.7191, -4.7016, 18.5312, 0.6894, -2.9147, 18.5312, 7.6585, -4.913, 25.7812, 0.75, -2.7032, 25.7812, 7.7191, -4.7016, 25.7812, 0.6894, -2.9147, 25.7812, 7.6585, -4.913, 18.5312, 0.75, -2.9621, 18.5312, 7.7191, -4.9604, 18.5312, 0.6894, -3.1735, 18.5312, 7.6585, -5.1719, 25.7812, 0.75, -2.9621, 25.7812, 7.7191, -4.9604, 25.7812, 0.6894, -3.1735, 25.7812, 7.6585, -5.1719], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6, 9, 11, 8, 12, 9, 8, 8, 11, 10, 10, 12, 8, 9, 15, 11, 13, 9, 12, 13, 15, 9, 11, 15, 10, 14, 12, 10, 10, 15, 14, 14, 13, 12, 15, 13, 14, 17, 19, 16, 20, 17, 16, 16, 19, 18, 18, 20, 16, 17, 23, 19, 21, 17, 20, 21, 23, 17, 19, 23, 18, 22, 20, 18, 18, 23, 22, 22, 21, 20, 23, 21, 22, 25, 27, 24, 28, 25, 24, 24, 27, 26, 26, 28, 24, 25, 31, 27, 29, 25, 28, 29, 31, 25, 27, 31, 26, 30, 28, 26, 26, 31, 30, 30, 29, 28, 31, 29, 30, 33, 35, 32, 36, 33, 32, 32, 35, 34, 34, 36, 32, 33, 39, 35, 37, 33, 36, 37, 39, 33, 35, 39, 34, 38, 36, 34, 34, 39, 38, 38, 37, 36, 39, 37, 38, 41, 43, 40, 44, 41, 40, 40, 43, 42, 42, 44, 40, 41, 47, 43, 45, 41, 44, 45, 47, 41, 43, 47, 42, 46, 44, 42, 42, 47, 46, 46, 45, 44, 47, 45, 46, 49, 51, 48, 52, 49, 48, 48, 51, 50, 50, 52, 48, 49, 55, 51, 53, 49, 52, 53, 55, 49, 51, 55, 50, 54, 52, 50, 50, 55, 54, 54, 53, 52, 55, 53, 54, 57, 59, 56, 60, 57, 56, 56, 59, 58, 58, 60, 56, 57, 63, 59, 61, 57, 60, 61, 63, 57, 59, 63, 58, 62, 60, 58, 58, 63, 62, 62, 61, 60, 63, 61, 62]}, {"name": "records_4", "color": "#568260", "positions": [27.0938, 0.75, -1.15, 27.0938, 7.7191, -3.1484, 27.0938, 0.6894, -1.3615, 27.0938, 7.6585, -3.3598, 34.3438, 0.75, -1.15, 34.3438, 7.7191, -3.1484, 34.3438, 0.6894, -1.3615, 34.3438, 7.6585, -3.3598, 27.0938, 0.75, -1.4089, 27.0938, 7.7191, -3.4072, 27.0938, 0.6894, -1.6203, 27.0938, 7.6585, -3.6187, 34.3438, 0.75, -1.4089, 34.3438, 7.7191, -3.4072, 34.3438, 0.6894, -1.6203, 34.3438, 7.6585, -3.6187, 27.0938, 0.75, -1.6677, 27.0938, 7.7191, -3.6661, 27.0938, 0.6894, -1.8792, 27.0938, 7.6585, -3.8776, 34.3438, 0.75, -1.6677, 34.3438, 7.7191, -3.6661, 34.3438, 0.6894, -1.8792, 34.3438, 7.6585, -3.8776, 27.0938, 0.75, -1.9266, 27.0938, 7.7191, -3.925, 27.0938, 0.6894, -2.1381, 27.0938, 7.6585, -4.1364, 34.3438, 0.75, -1.9266, 34.3438, 7.7191, -3.925, 34.3438, 0.6894, -2.1381, 34.3438, 7.6585, -4.1364, 27.0938, 0.75, -2.1855, 27.0938, 7.7191, -4.1838, 27.0938, 0.6894, -2.3969, 27.0938, 7.6585, -4.3953, 34.3438, 0.75, -2.1855, 34.3438, 7.7191, -4.1838, 34.3438, 0.6894, -2.3969, 34.3438, 7.6585, -4.3953, 27.0938, 0.75, -2.4443, 27.0938, 7.7191, -4.4427, 27.0938, 0.6894, -2.6558, 27.0938, 7.6585, -4.6542, 34.3438, 0.75, -2.4443, 34.3438, 7.7191, -4.4427, 34.3438, 0.6894, -2.6558, 34.3438, 7.6585, -4.6542, 27.0938, 0.75, -2.7032, 27.0938, 7.7191, -4.7016, 27.0938, 0.6894, -2.9147, 27.0938, 7.6585, -4.913, 34.3438, 0.75, -2.7032, 34.3438, 7.7191, -4.7016, 34.3438, 0.6894, -2.9147, 34.3438, 7.6585, -4.913, 27.0938, 0.75, -2.9621, 27.0938, 7.7191, -4.9604, 27.0938, 0.6894, -3.1735, 27.0938, 7.6585, -5.1719, 34.3438, 0.75, -2.9621, 34.3438, 7.7191, -4.9604, 34.3438, 0.6894, -3.1735, 34.3438, 7.6585, -5.1719], "indices": [1, 3, 0, 4, 1, 0, 0, 3, 2, 2, 4, 0, 1, 7, 3, 5, 1, 4, 5, 7, 1, 3, 7, 2, 6, 4, 2, 2, 7, 6, 6, 5, 4, 7, 5, 6, 9, 11, 8, 12, 9, 8, 8, 11, 10, 10, 12, 8, 9, 15, 11, 13, 9, 12, 13, 15, 9, 11, 15, 10, 14, 12, 10, 10, 15, 14, 14, 13, 12, 15, 13, 14, 17, 19, 16, 20, 17, 16, 16, 19, 18, 18, 20, 16, 17, 23, 19, 21, 17, 20, 21, 23, 17, 19, 23, 18, 22, 20, 18, 18, 23, 22, 22, 21, 20, 23, 21, 22, 25, 27, 24, 28, 25, 24, 24, 27, 26, 26, 28, 24, 25, 31, 27, 29, 25, 28, 29, 31, 25, 27, 31, 26, 30, 28, 26, 26, 31, 30, 30, 29, 28, 31, 29, 30, 33, 35, 32, 36, 33, 32, 32, 35, 34, 34, 36, 32, 33, 39, 35, 37, 33, 36, 37, 39, 33, 35, 39, 34, 38, 36, 34, 34, 39, 38, 38, 37, 36, 39, 37, 38, 41, 43, 40, 44, 41, 40, 40, 43, 42, 42, 44, 40, 41, 47, 43, 45, 41, 44, 45, 47, 41, 43, 47, 42, 46, 44, 42, 42, 47, 46, 46, 45, 44, 47, 45, 46, 49, 51, 48, 52, 49, 48, 48, 51, 50, 50, 52, 48, 49, 55, 51, 53, 49, 52, 53, 55, 49, 51, 55, 50, 54, 52, 50, 50, 55, 54, 54, 53, 52, 55, 53, 54, 57, 59, 56, 60, 57, 56, 56, 59, 58, 58, 60, 56, 57, 63, 59, 61, 57, 60, 61, 63, 57, 59, 63, 58, 62, 60, 58, 58, 63, 62, 62, 61, 60, 63, 61, 62]}];
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1114);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 5000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+// Lights
+const hemi = new THREE.HemisphereLight(0xffffff, 0x30343a, 0.55);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 2.4);
+key.position.set(40, 70, 55);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1; key.shadow.camera.far = 400;
+const s = 60;
+key.shadow.camera.left = -s; key.shadow.camera.right = s;
+key.shadow.camera.top = s; key.shadow.camera.bottom = -s;
+key.shadow.bias = -0.0004;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xbfd2ff, 0.5);
+fill.position.set(-50, 30, -40);
+scene.add(fill);
+
+// Build meshes
+const group = new THREE.Group();
+scene.add(group);
+const box = new THREE.Box3();
+const meshes = [];
+
+for (const p of PARTS) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p.positions, 3));
+  g.setIndex(p.indices);
+  g.computeVertexNormals();
+  const isSteel = p.name.startsWith('leg');
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(p.color),
+    roughness: isSteel ? 0.5 : 0.72,
+    metalness: isSteel ? 0.85 : 0.0,
+  });
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.userData.name = p.name;
+  g.computeBoundingBox();
+  mesh.userData.home = g.boundingBox.getCenter(new THREE.Vector3());
+  group.add(mesh);
+  meshes.push(mesh);
+  box.expandByObject(mesh);
+}
+
+const center = box.getCenter(new THREE.Vector3());
+const size = box.getSize(new THREE.Vector3());
+const radius = size.length() / 2;
+
+// explode direction per part = from assembly centre to part centre
+for (const mesh of meshes) {
+  mesh.userData.dir = mesh.userData.home.clone().sub(center);
+}
+
+// Ground shadow catcher
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000, 2000),
+  new THREE.ShadowMaterial({ opacity: 0.32 }));
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = box.min.y - 0.2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(400, 80, 0x2a2f36, 0x1c2026);
+grid.position.y = box.min.y - 0.2;
+scene.add(grid);
+
+// Frame the model
+function frameView() {
+  const dist = radius / Math.sin((camera.fov * Math.PI / 180) / 2) * 0.62;
+  camera.position.set(center.x + dist * 0.75, center.y + dist * 0.55, center.z + dist * 0.9);
+  controls.target.copy(center);
+  camera.near = dist / 100; camera.far = dist * 20;
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+frameView();
+
+// ---- Explode ----
+let explodeAmt = 0;
+function applyExplode() {
+  for (const mesh of meshes) {
+    mesh.position.copy(mesh.userData.dir).multiplyScalar(explodeAmt * 1.4);
+  }
+}
+const explodeEl = document.getElementById('explode');
+const explodeVal = document.getElementById('explodeVal');
+explodeEl.addEventListener('input', () => {
+  explodeAmt = explodeEl.value / 100;
+  explodeVal.textContent = explodeEl.value;
+  applyExplode();
+});
+
+// ---- Part list ----
+const partsEl = document.getElementById('parts');
+const rowByName = {};
+for (const mesh of meshes) {
+  const row = document.createElement('div');
+  row.className = 'pitem';
+  row.innerHTML = `<span class="sw" style="background:${
+    '#' + mesh.material.color.getHexString()}"></span>` +
+    `<span class="nm">${mesh.userData.name}</span><span class="iso">isolate</span>`;
+  row.addEventListener('click', (e) => {
+    if (e.target.classList.contains('sw')) { toggle(mesh, row); return; }
+    isolate(mesh);
+  });
+  row.querySelector('.sw').addEventListener('click', (e) => {
+    e.stopPropagation(); toggle(mesh, row);
+  });
+  partsEl.appendChild(row);
+  rowByName[mesh.userData.name] = row;
+}
+function toggle(mesh, row) {
+  mesh.visible = !mesh.visible;
+  row.classList.toggle('off', !mesh.visible);
+}
+function isolate(target) {
+  const soloing = meshes.some(m => m !== target && m.visible) ||
+    meshes.every(m => m.visible);
+  for (const mesh of meshes) {
+    mesh.visible = soloing ? (mesh === target) : true;
+    rowByName[mesh.userData.name].classList.toggle('off', !mesh.visible);
+  }
+}
+function showAll() {
+  for (const mesh of meshes) {
+    mesh.visible = true;
+    rowByName[mesh.userData.name].classList.remove('off');
+  }
+}
+
+// ---- Buttons ----
+let autorotate = false, wire = false;
+const bR = document.getElementById('btnRotate');
+const bW = document.getElementById('btnWire');
+bR.onclick = () => { autorotate = !autorotate; bR.classList.toggle('active', autorotate); };
+bW.onclick = () => {
+  wire = !wire; bW.classList.toggle('active', wire);
+  for (const mesh of meshes) mesh.material.wireframe = wire;
+};
+document.getElementById('btnAll').onclick = showAll;
+document.getElementById('btnReset').onclick = frameView;
+function toggleGroup(prefix) {
+  for (const mesh of meshes) {
+    if (mesh.userData.name.startsWith(prefix)) {
+      mesh.visible = !mesh.visible;
+      rowByName[mesh.userData.name].classList.toggle('off', !mesh.visible);
+    }
+  }
+}
+document.getElementById('btnLegs').onclick = () => toggleGroup('leg');
+const bRec = document.getElementById('btnRecords');
+bRec.onclick = () => {
+  toggleGroup('records');
+  const anyOn = meshes.some(m => m.userData.name.startsWith('records') && m.visible);
+  bRec.classList.toggle('active', anyOn);
+};
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+(function loop() {
+  requestAnimationFrame(loop);
+  if (autorotate) group.rotation.y += 0.0035;
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
