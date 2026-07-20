@@ -191,6 +191,12 @@ def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
                     progress = True
                     break
 
+        if not strip["items"]:                  # nothing fit -> force progress
+            p = remaining.pop(0)
+            hh, ll = min(p["long"], p["short"]), max(p["long"], p["short"])
+            strip["h"], strip["used"] = hh, ll
+            strip["items"].append((p, ll, hh))
+
     strips.sort(key=lambda s: -s["h"])
     sheets, y = 0, 0.0
     for s in strips:
@@ -252,7 +258,7 @@ def _expand_twins(placed):
     return out
 
 
-def _count_cuts(placed):
+def _count_cuts(placed, sheet_l=SHEET_L, sheet_w=SHEET_W):
     """Guillotine cut count for a strip layout: for each sheet the sheet is
     sliced into strips (horizontal rips) then each strip into pieces + tail
     waste (vertical crosscuts). #cuts = #rectangles - 1 per sheet."""
@@ -265,24 +271,33 @@ def _count_cuts(placed):
         band, vcuts = 0.0, 0
         for items in strips.values():
             band += max(it["ph"] for it in items)
-            tail = sum(it["pl"] for it in items) < SHEET_L - 0.5
+            tail = sum(it["pl"] for it in items) < sheet_l - 0.5
             vcuts += (len(items) - 1) + (1 if tail else 0)
-        top_waste = band < SHEET_W - 0.5
+        top_waste = band < sheet_w - 0.5
         total += (len(strips) - 1) + (1 if top_waste else 0) + vcuts
     return total
 
 
 def draw(parts, title, fname, unit="in", show_wedge=True):
-    pieces = _merge_twins(sheet_pieces(parts), SHEET_L)
-    # Try both packers; pick fewest sheets, then fewest guillotine cuts.
+    base = sheet_pieces(parts)
+    # Try both packers AND both board orientations (strips along the 244 length,
+    # or along the 122 width). Rotation of pieces is already handled by the
+    # packers. Pick fewest sheets, then fewest guillotine cuts.
     cands = []
-    for placed_raw, n in [_pack_common([dict(p) for p in pieces]),
-                          _pack_tagged([dict(p) for p in pieces])]:
-        for pc in placed_raw:
-            pc.setdefault("pl", pc["long"])
-            pc.setdefault("ph", pc["short"])
-        exp = _expand_twins(placed_raw)
-        cands.append((n, _count_cuts(exp), exp))
+    for sl, sw, transpose in [(SHEET_L, SHEET_W, False), (SHEET_W, SHEET_L, True)]:
+        merged = _merge_twins([dict(p) for p in base], sl)
+        for packer in (_pack_common, _pack_tagged):
+            placed_raw, n = packer([dict(p) for p in merged], sl, sw)
+            for pc in placed_raw:
+                pc.setdefault("pl", pc["long"])
+                pc.setdefault("ph", pc["short"])
+            exp = _expand_twins(placed_raw)
+            cuts = _count_cuts(exp, sl, sw)
+            if transpose:                          # map strip space -> real board
+                for pc in exp:
+                    pc["x"], pc["y"] = pc["y"], pc["x"]
+                    pc["pl"], pc["ph"] = pc["ph"], pc["pl"]
+            cands.append((n, cuts, exp))
     cands.sort(key=lambda t: (t[0], t[1]))
     nsheets, ncuts, placed = cands[0]
 
@@ -389,7 +404,7 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
     return placed
 
 
-def _pack_tagged(pieces):
+def _pack_tagged(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     """Same shelf packer but records which sheet each piece lands on."""
     order = sorted(pieces, key=lambda p: p["short"], reverse=True)
     sheets = []
@@ -398,14 +413,14 @@ def _pack_tagged(pieces):
         placed = False
         for si, sh in enumerate(sheets):
             for shelf in sh["shelves"]:
-                if h <= shelf["h"] + 1e-6 and shelf["x"] + w <= SHEET_L + 1e-6:
+                if h <= shelf["h"] + 1e-6 and shelf["x"] + w <= sheet_l + 1e-6:
                     pc["x"], pc["y"], pc["sheet"] = shelf["x"], shelf["y"], si
                     shelf["x"] += w
                     placed = True
                     break
             if placed:
                 break
-            if sh["used_w"] + h <= SHEET_W + 1e-6:
+            if sh["used_w"] + h <= sheet_w + 1e-6:
                 shelf = {"y": sh["used_w"], "h": h, "x": 0.0}
                 sh["shelves"].append(shelf)
                 sh["used_w"] += h
