@@ -7,14 +7,21 @@ Reference / plans: <https://jenwoodhouse.com/vinyl-record-storage/>
 
 ## Variants
 
-| Variant | Row depth | Overall depth | Viewer |
-|---------|----------:|--------------:|--------|
-| **Standard** (original plan) | 12″ | 26¼″ | `viewer.html` |
-| **Compact** (protrudes less) | 8″ | 18¼″ | `viewer_compact.html` |
+| Variant | Depth | Width | Viewer |
+|---------|------:|------:|--------|
+| **Standard** (original plan) | 26¼″ | 55¼″ | `viewer.html` |
+| **Compact** (protrudes less) | 18¼″ | 55¼″ | `viewer_compact.html` |
+| **7″ middle sections** | 26¼″ | 46½″ | `viewer_7inch.html` |
 
-The compact version keeps both rows, all four cubbies per row, and every height
-identical — only each row is made shallower so the cabinet sticks out ~8″ less
-from the wall.
+- **Compact** keeps both rows, all four cubbies per row, and every height
+  identical — only each row is shallower, so it sticks out ~8″ less from the wall.
+- **7″ middle sections** turns the two centre columns into 45 rpm bays (8½″ wide,
+  raised floor so the smaller sleeves' tops line up with the LPs, taller
+  dividers). The LP columns stay at the original 12⅞″ width, so the cabinet is
+  narrower overall (46½″) rather than stretching the LP bays.
+
+Widths and cubby sizes are all parametric (`LP_BAY_W`, `SEVEN_BAY_W`,
+`seven_inch_cols`, `ROW_DEPTH_*`) in `src/record_storage.py`.
 
 ## Interactive viewer
 

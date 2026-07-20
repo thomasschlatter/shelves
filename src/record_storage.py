@@ -53,6 +53,7 @@ RECORD_T = 0.22        # sleeve thickness
 RECORD_LEAN = 16.0     # lean-back angle from vertical (degrees)
 RECORDS_PER_CUBBY = 6
 SEVEN_BAY_W = 8.5      # clear width of a 7" (45 rpm) cubby
+LP_BAY_W = 12.875      # clear width of a 12" LP cubby (matches the original plan)
 RECORD_COLORS = [      # a few sleeve colours to vary the cubbies
     [196, 62, 55, 255], [63, 106, 148, 255], [222, 178, 74, 255],
     [86, 130, 96, 255], [150, 96, 148, 255], [70, 74, 82, 255],
@@ -149,6 +150,16 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
     D = overall_depth(row_depth)
     div_len = row_depth                        # dividers span the full row depth
 
+    # width is DERIVED from the cubby widths (LP bays match the original plan;
+    # 7" bays are narrower) — the overall cabinet gets narrower rather than
+    # stretching the LP columns.
+    seven = set(seven_inch_cols or [])
+    n = CUBBIES_PER_TIER
+    widths = [SEVEN_BAY_W if c in seven else LP_BAY_W for c in range(n)]
+    inner_w = sum(widths) + (n - 1) * T
+    Wloc = inner_w + 2 * T
+    ix0, ix1 = T, Wloc - T
+
     # depth landmarks (y, front -> back)
     FRONT_FACE = 0.0
     FRONT_INNER = T                            # back face of front panel
@@ -163,31 +174,21 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
 
     # --- Carcass ----------------------------------------------------------
     p["side_left"] = side_panel(0.0, D)
-    p["side_right"] = side_panel(W - T, D)
-    p["back"] = plate(IX0, IX1, BACK_INNER, D, 0.0, H, WOOD_STRUCT)
-    p["front"] = plate(IX0, IX1, FRONT_FACE, FRONT_INNER, 0.0, FRONT_H, WOOD_STRUCT)
-    p["bottom"] = plate(IX0, IX1, FRONT_INNER, BACK_INNER, BOT_Z0, BOT_Z1, WOOD_STRUCT)
+    p["side_right"] = side_panel(Wloc - T, D)
+    p["back"] = plate(ix0, ix1, BACK_INNER, D, 0.0, H, WOOD_STRUCT)
+    p["front"] = plate(ix0, ix1, FRONT_FACE, FRONT_INNER, 0.0, FRONT_H, WOOD_STRUCT)
+    p["bottom"] = plate(ix0, ix1, FRONT_INNER, BACK_INNER, BOT_Z0, BOT_Z1, WOOD_STRUCT)
 
     # --- Back shelf (raised platform) ------------------------------------
-    p["shelf_divider"] = plate(IX0, IX1, STEPWALL_Y0, STEPWALL_Y1,
+    p["shelf_divider"] = plate(ix0, ix1, STEPWALL_Y0, STEPWALL_Y1,
                                BOT_Z1, SHELF_DIV_TOP, WOOD_STRUCT)
-    p["back_shelf_support"] = plate(IX0, IX1, SUPPORT_Y0, SUPPORT_Y1,
+    p["back_shelf_support"] = plate(ix0, ix1, SUPPORT_Y0, SUPPORT_Y1,
                                     BOT_Z1, SUPPORT_TOP, WOOD_STRUCT)
-    p["back_shelf_bottom"] = plate(IX0, IX1, PLATFORM_FRONT, BACK_INNER,
+    p["back_shelf_bottom"] = plate(ix0, ix1, PLATFORM_FRONT, BACK_INNER,
                                    PLATFORM_Z0, PLATFORM_Z1, WOOD_STRUCT)
 
     # --- Cubby layout: dividers, optional 7" sections, records -----------
-    # 7" columns are narrower (SEVEN_BAY_W); the remaining width is split
-    # evenly among the 12" columns. Divider thickness is reserved separately.
-    seven = set(seven_inch_cols or [])
-    n = CUBBIES_PER_TIER
-    if seven:
-        rest = (IX1 - IX0) - (n - 1) * T - len(seven) * SEVEN_BAY_W
-        w_other = rest / (n - len(seven))
-        widths = [SEVEN_BAY_W if c in seven else w_other for c in range(n)]
-    else:
-        widths = [((IX1 - IX0) - (n - 1) * T) / n] * n
-    cols, divs, x = [], [], IX0
+    cols, divs, x = [], [], ix0
     for i, w in enumerate(widths):
         cols.append((x, x + w)); x += w
         if i < n - 1:
@@ -239,7 +240,7 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
 
     # --- 2x2 support frame under the bottom (fills the 1 1/2" recess) -----
     fz0, fz1 = 0.0, TWO_BY
-    fx0, fx1 = IX0 + 0.5, IX1 - 0.5
+    fx0, fx1 = ix0 + 0.5, ix1 - 0.5
     fy0, fy1 = FRONT_INNER + 0.5, BACK_INNER - 0.5
     p["frame_left"] = plate(fx0, fx0 + TWO_BY, fy0, fy1, fz0, fz1, FRAME)
     p["frame_right"] = plate(fx1 - TWO_BY, fx1, fy0, fy1, fz0, fz1, FRAME)
@@ -254,10 +255,10 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
 
     # --- Legs -------------------------------------------------------------
     for name, cx, cy in [
-        ("leg_front_left",  LEG_INSET,     LEG_INSET),
-        ("leg_front_right", W - LEG_INSET, LEG_INSET),
-        ("leg_back_left",   LEG_INSET,     D - LEG_INSET),
-        ("leg_back_right",  W - LEG_INSET, D - LEG_INSET),
+        ("leg_front_left",  LEG_INSET,      LEG_INSET),
+        ("leg_front_right", Wloc - LEG_INSET, LEG_INSET),
+        ("leg_back_left",   LEG_INSET,      D - LEG_INSET),
+        ("leg_back_right",  Wloc - LEG_INSET, D - LEG_INSET),
     ]:
         p[name] = hairpin(cx, cy)
 
