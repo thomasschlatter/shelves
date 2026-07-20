@@ -95,9 +95,14 @@ def plate(x0, x1, y0, y1, z0, z1, color=WOOD):
     return b
 
 
-def side_panel(x0, D):
-    """Wedge side: D deep, 18 1/2" at the back, sloping to the 7" front."""
-    poly = Polygon([(0.0, 0.0), (0.0, FRONT_H), (D, H), (D, 0.0)])
+def side_panel(x0, D, row_depth):
+    """Side panel: full height (18 1/2") and FLAT across the back tier, then
+    sloping down to the 7" front lip over the front tier — matching the plan
+    (a straight top over the back, then a diagonal), not a corner diagonal.
+    """
+    knee = max(0.0, D - T - row_depth)      # slope meets the flat here
+    poly = Polygon([(0.0, 0.0), (0.0, FRONT_H),
+                    (knee, H), (D, H), (D, 0.0)])
     if not poly.is_valid:
         poly = poly.buffer(0)
     side = trimesh.creation.extrude_polygon(poly, height=T)
@@ -180,8 +185,8 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False,
     p = OrderedDict()
 
     # --- Carcass ----------------------------------------------------------
-    p["side_left"] = side_panel(0.0, D)
-    p["side_right"] = side_panel(Wloc - T, D)
+    p["side_left"] = side_panel(0.0, D, row_depth)
+    p["side_right"] = side_panel(Wloc - T, D, row_depth)
     p["back"] = plate(ix0, ix1, BACK_INNER, D, 0.0, H, WOOD_STRUCT)
     p["front"] = plate(ix0, ix1, FRONT_FACE, FRONT_INNER, 0.0, FRONT_H, WOOD_STRUCT)
     p["bottom"] = plate(ix0, ix1, FRONT_INNER, BACK_INNER, BOT_Z0, BOT_Z1, WOOD_STRUCT)

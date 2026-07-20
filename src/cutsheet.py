@@ -15,10 +15,46 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Polygon as MplPolygon
 from matplotlib.lines import Line2D
 
 import record_storage as rs
+
+
+def _convex_hull(pts):
+    """Andrew's monotone chain hull of 2D points (CCW, no repeat of first)."""
+    pts = sorted(set(pts))
+    if len(pts) <= 2:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
+def _outline(mesh):
+    """Normalised silhouette of a flat panel in (u=long, v=short) 0..1 coords."""
+    ext = list(mesh.extents)
+    tax = ext.index(min(ext))                 # thickness axis
+    a2 = [i for i in (0, 1, 2) if i != tax]
+    la, sa = (a2 if ext[a2[0]] >= ext[a2[1]] else a2[::-1])
+    V = mesh.vertices
+    lmin, lspan = V[:, la].min(), (V[:, la].max() - V[:, la].min()) or 1.0
+    smin, sspan = V[:, sa].min(), (V[:, sa].max() - V[:, sa].min()) or 1.0
+    pts = [(round(float((x - lmin) / lspan), 4), round(float((y - smin) / sspan), 4))
+           for x, y in zip(V[:, la], V[:, sa])]
+    return _convex_hull(pts)
 
 IN2CM = 2.54
 SHEET_L = 244.0 / IN2CM   # 96.06"  (244 cm)
@@ -64,7 +100,8 @@ def sheet_pieces(parts):
         face_area = mesh.volume / thick if thick > 1e-6 else short * long
         is_wedge = face_area < short * long * 0.97
         out.append({"name": name, "long": round(long, 3),
-                    "short": round(short, 3), "wedge": bool(is_wedge)})
+                    "short": round(short, 3), "wedge": bool(is_wedge),
+                    "outline": _outline(mesh)})
     return out
 
 
@@ -189,8 +226,19 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
     for i, pc in enumerate(order, 1):
         pc["idx"] = i
 
-    cmap = plt.get_cmap("Pastel1")
+    # colour by SHELF group (name prefix "bin-"/"cab-"); one colour if unprefixed
+    GROUP_COLORS = ["#9ecae1", "#fdae6b", "#a1d99b", "#c6a5d6", "#fb9a99"]
+    has_groups = any("-" in pc["name"] for pc in placed)
+
+    def group_of(nm):
+        return nm.split("-", 1)[0] if (has_groups and "-" in nm) else "all"
+
     color_by = {}
+    for pc in sorted(placed, key=lambda p: p["idx"]):
+        g = group_of(pc["name"])
+        if g not in color_by:
+            color_by[g] = (GROUP_COLORS[len(color_by) % len(GROUP_COLORS)]
+                           if has_groups else "#cfe2f3")
     thick = 0.75
     sheet_lbl = ("4' × 8' × ¾\" plywood" if unit == "in"
                  else f"{SHEET_W*IN2CM:.0f} × {SHEET_L*IN2CM:.0f} × "
@@ -214,15 +262,20 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
         for pc in placed:
             if pc["sheet"] != si:
                 continue
-            color_by.setdefault(base_name(pc["name"]),
-                                cmap(len(color_by) % 9))
             x, y, L, Sh = pc["x"], pc["y"], pc["pl"], pc["ph"]
-            ax.add_patch(Rectangle((x, y), L, Sh,
-                                   facecolor=color_by[base_name(pc["name"])],
-                                   ec="#555", lw=0.8))
+            col = color_by[group_of(pc["name"])]
+            rotated = abs(pc["pl"] - pc["long"]) > 0.05   # long dim is vertical
             if pc["wedge"] and show_wedge:
-                ax.add_line(Line2D([x, x + L], [y, y + Sh],
-                                   color="#c0392b", lw=1.1, ls="--"))
+                # show the real silhouette; the blank rectangle + offcut are dashed
+                ax.add_patch(Rectangle((x, y), L, Sh, facecolor="none",
+                                       ec="#c0392b", ls=(0, (4, 3)), lw=0.8))
+                pts = [((x + v * L, y + u * Sh) if rotated
+                        else (x + u * L, y + v * Sh)) for u, v in pc["outline"]]
+                ax.add_patch(MplPolygon(pts, closed=True, facecolor=col,
+                                        ec="#555", lw=0.9))
+            else:
+                ax.add_patch(Rectangle((x, y), L, Sh, facecolor=col,
+                                       ec="#555", lw=0.8))
             fs = max(5.5, min(11, min(L, Sh) * 1.7))   # number scaled to piece
             ax.text(x + L / 2, y + Sh / 2, str(pc["idx"]),
                     ha="center", va="center", fontsize=fs, weight="bold",
@@ -242,6 +295,14 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
     # legend
     legax = fig.add_subplot(gs[1])
     legax.axis("off")
+    if has_groups:                              # shelf colour key
+        keys = [g for g in color_by if g != "all"]
+        for j, g in enumerate(keys):
+            legax.add_patch(Rectangle((j * 0.18, 1.06), 0.02, 0.06,
+                            facecolor=color_by[g], ec="#555",
+                            transform=legax.transAxes, clip_on=False))
+            legax.text(j * 0.18 + 0.028, 1.09, f"{g}-*", va="center",
+                       fontsize=8, weight="bold", transform=legax.transAxes)
     for i, pc in enumerate(order):
         col, row = i % leg_cols, i // leg_cols
         name = pc["name"].replace("_", " ")
