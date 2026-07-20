@@ -60,7 +60,7 @@ IN2CM = 2.54
 SHEET_L = 244.0 / IN2CM   # 96.06"  (244 cm)
 SHEET_W = 122.0 / IN2CM   # 48.03"  (122 cm)
 KERF = 0.0                # ignore saw kerf for layout clarity
-GAP = 0.1                 # ~2.5 mm gap/kerf between parts
+GAP = 0.0                 # adjacent pieces share a cut line (no gap between)
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "plans")
 
