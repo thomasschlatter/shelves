@@ -20,21 +20,27 @@ import cutsheet
 
 # --- Parameters (inches) --------------------------------------------------
 T = rs.T                 # 3/4" plywood
-BAYS = 4                 # 4 compartments
 BAY_W = 8.0              # clear width per compartment (7 1/4" sleeve + room)
-DEPTH = 9.0              # slanted: front-to-back
-FLAT_DEPTH = 13.0        # flat version can protrude more (holds more 45s)
-BACK_H = 8.0             # slanted: back panel height
-FRONT_H = 4.0            # slanted: front panel height (lower, to flip through)
-FLAT_H = 6.0             # flat version: front == back height
 DIV_H = 4.5              # divider height
-REC_N = 8                # records shown per compartment (slanted)
-FLAT_REC_N = 18          # deeper flat bin holds more
 
-W = BAYS * BAY_W + (BAYS - 1) * T + 2 * T     # overall width
-IX0, IX1 = T, W - T
+# Slanted variant
+BAYS = 4
+DEPTH = 9.0
+BACK_H = 8.0
+FRONT_H = 4.0
+REC_N = 8
+
+# Flat variant — deeper (protrudes much more) and an extra compartment
+FLAT_BAYS = 5
+FLAT_DEPTH = 22.0
+FLAT_H = 6.0             # front == back height
+FLAT_REC_N = 30          # deep bin holds a lot
 
 AXIS_PERM = rs.AXIS_PERM
+
+
+def overall_width(bays):
+    return bays * BAY_W + (bays - 1) * T + 2 * T
 
 
 def side(x0, front_h, back_h, depth):
@@ -49,15 +55,17 @@ def side(x0, front_h, back_h, depth):
 
 
 def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H,
-                depth=DEPTH, rec_n=REC_N):
+                depth=DEPTH, rec_n=REC_N, bays=BAYS):
+    W = overall_width(bays)
+    ix0, ix1 = T, W - T
     p = OrderedDict()
     p["side_left"] = side(0.0, front_h, back_h, depth)
     p["side_right"] = side(W - T, front_h, back_h, depth)
-    p["bottom"] = rs.plate(IX0, IX1, 0, depth, 0, T, rs.WOOD_STRUCT)
-    p["back"] = rs.plate(IX0, IX1, depth - T, depth, T, back_h, rs.WOOD_STRUCT)
-    p["front"] = rs.plate(IX0, IX1, 0, T, T, front_h, rs.WOOD_STRUCT)
+    p["bottom"] = rs.plate(ix0, ix1, 0, depth, 0, T, rs.WOOD_STRUCT)
+    p["back"] = rs.plate(ix0, ix1, depth - T, depth, T, back_h, rs.WOOD_STRUCT)
+    p["front"] = rs.plate(ix0, ix1, 0, T, T, front_h, rs.WOOD_STRUCT)
 
-    edges = np.linspace(IX0, IX1, BAYS + 1)
+    edges = np.linspace(ix0, ix1, bays + 1)
     for i, xc in enumerate(edges[1:-1], 1):
         p[f"divider_{i}"] = rs.plate(xc - T / 2, xc + T / 2, T, depth - T,
                                      T, T + DIV_H, rs.WOOD_STRUCT)
@@ -80,16 +88,17 @@ def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H,
     return p
 
 
-def emit(slug, label, front_h, back_h, depth=DEPTH, rec_n=REC_N):
+def emit(slug, label, front_h, back_h, depth=DEPTH, rec_n=REC_N, bays=BAYS):
     here = os.path.dirname(__file__)
-    parts = build_parts(front_h=front_h, back_h=back_h, depth=depth)
-    rs.export(parts, os.path.join(here, "..", "models", slug))
+    W = overall_width(bays)
     top = max(front_h, back_h)
+    parts = build_parts(front_h=front_h, back_h=back_h, depth=depth, bays=bays)
+    rs.export(parts, os.path.join(here, "..", "models", slug))
     print(f"[{label}] {len(parts)} parts  W×D×H = {W:.2f} × {depth:.2f} × "
           f"{top:.2f} in  ({W*2.54:.0f} × {depth*2.54:.0f} × {top*2.54:.0f} cm)")
 
     rec = build_parts(with_records=True, front_h=front_h, back_h=back_h,
-                      depth=depth, rec_n=rec_n)
+                      depth=depth, rec_n=rec_n, bays=bays)
     bv.write_viewer(rec, f"{label} · {W:.2f} × {depth} × {top:.1f} in",
                     f"viewer_{slug}.html")
     render.hero(rec, 26, -60, f"hero_{slug}.png")
@@ -104,9 +113,9 @@ def emit(slug, label, front_h, back_h, depth=DEPTH, rec_n=REC_N):
 
 def main():
     emit("simple_7inch", "Simple 4x 7\" bin (slanted)", FRONT_H, BACK_H,
-         depth=DEPTH, rec_n=REC_N)
-    emit("simple_7inch_flat", "Simple 4x 7\" bin (flat)", FLAT_H, FLAT_H,
-         depth=FLAT_DEPTH, rec_n=FLAT_REC_N)
+         depth=DEPTH, rec_n=REC_N, bays=BAYS)
+    emit("simple_7inch_flat", "Simple 5x 7\" bin (flat, deep)", FLAT_H, FLAT_H,
+         depth=FLAT_DEPTH, rec_n=FLAT_REC_N, bays=FLAT_BAYS)
 
 
 if __name__ == "__main__":
