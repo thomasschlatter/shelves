@@ -303,3 +303,7 @@ if __name__ == "__main__":
     three7 = build_parts(ROW_DEPTH_STD, layout=["lp", "7", "7", "7", "lp"])
     export(three7, os.path.join(here, "..", "models", "three_seven_inch"))
     _report("3x7 mid   row=12", three7)
+
+    three7c = build_parts(ROW_DEPTH_COMPACT, layout=["lp", "7", "7", "7", "lp"])
+    export(three7c, os.path.join(here, "..", "models", "compact_three_seven_inch"))
+    _report("3x7 cmpt  row=8 ", three7c)

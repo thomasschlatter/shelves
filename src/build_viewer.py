@@ -352,6 +352,10 @@ def main():
                                layout=["lp", "7", "7", "7", "lp"]),
                  "3× 7\" middle sections · 55¾ × 26¼ × 18½ in",
                  "viewer_7inch_x3.html")
+    write_viewer(m.build_parts(m.ROW_DEPTH_COMPACT, with_records=True,
+                               layout=["lp", "7", "7", "7", "lp"]),
+                 "Compact + 3× 7\" middle · 55¾ × 18¼ × 18½ in",
+                 "viewer_compact_7inch_x3.html")
 
 
 if __name__ == "__main__":
