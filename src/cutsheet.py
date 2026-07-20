@@ -145,7 +145,7 @@ def _pack_guillotine(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     return pieces, sheets
 
 
-def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W, rng=None):
+def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W, rng=None, strict=False):
     """Group pieces that share a dimension into the same full-length strip, most-
     shared dimension first, so many pieces come off one rip. With `rng` set, the
     strip dimension is chosen randomly (weighted by how many pieces share it) so
@@ -186,6 +186,8 @@ def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W, rng=None):
                 if shares(p, d):
                     h = d
                     l = p["long"] if abs(p["short"] - d) < 0.06 else p["short"]
+                elif strict:
+                    continue                      # uniform strips: no shorter fillers
                 else:
                     h, l = min(p["long"], p["short"]), max(p["long"], p["short"])
                     if h > d + 1e-6:
@@ -276,9 +278,12 @@ def _count_cuts(placed, sheet_l=SHEET_L, sheet_w=SHEET_W):
     for strips in sheets.values():
         band, vcuts = 0.0, 0
         for items in strips.values():
-            band += max(it["ph"] for it in items)
+            h = max(it["ph"] for it in items)
+            band += h
             tail = sum(it["pl"] for it in items) < sheet_l - 0.5
             vcuts += (len(items) - 1) + (1 if tail else 0)
+            # each piece shorter than its strip leaves waste above it (+1 cut)
+            vcuts += sum(1 for it in items if it["ph"] < h - 0.3)
         top_waste = band < sheet_w - 0.5
         total += (len(strips) - 1) + (1 if top_waste else 0) + vcuts
     return total
@@ -304,12 +309,15 @@ def draw(parts, title, fname, unit="in", show_wedge=True, tries=400):
 
     # Portfolio: both orientations x {grouping packer, shelf packer, and many
     # randomized grouping runs}. Keep fewest sheets, then fewest guillotine cuts.
-    for sl, sw, tr in [(SHEET_L, SHEET_W, False), (SHEET_W, SHEET_L, True)]:
+    for sl, sw, tr in [(SHEET_L, SHEET_W, False)]:      # row orientation only
         merged = _merge_twins([dict(p) for p in base], sl)
         consider(*_pack_common([dict(p) for p in merged], sl, sw), sl, sw, tr)
+        consider(*_pack_common([dict(p) for p in merged], sl, sw, strict=True),
+                 sl, sw, tr)
         consider(*_pack_tagged([dict(p) for p in merged], sl, sw), sl, sw, tr)
         for _ in range(tries):
-            consider(*_pack_common([dict(p) for p in merged], sl, sw, rng),
+            strict = rng.random() < 0.5           # explore both fill modes
+            consider(*_pack_common([dict(p) for p in merged], sl, sw, rng, strict),
                      sl, sw, tr)
     nsheets, ncuts, placed = best[0]
 
