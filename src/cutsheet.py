@@ -207,8 +207,53 @@ def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     return pieces, sheets
 
 
+def _merge_twins(pieces, sheet_l):
+    """Merge identical pieces whose lengths tile a full sheet length into one
+    super-strip, so e.g. two 122 cm panels share a single 244 cm row (one rip +
+    one crosscut). Super pieces carry a 'twins' list; others pass through."""
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for p in pieces:
+        groups[(round(p["long"], 1), round(p["short"], 1))].append(p)
+    out = []
+    for (lo, _sh), grp in groups.items():
+        k = int(round(sheet_l / lo)) if lo > 0 else 1
+        i = 0
+        while k >= 2 and len(grp) - i >= k and abs(k * lo - sheet_l) < 1.5:
+            chunk = grp[i:i + k]
+            out.append({"name": "+".join(c["name"] for c in chunk),
+                        "long": k * lo, "short": chunk[0]["short"],
+                        "wedge": False, "twins": chunk})
+            i += k
+        out.extend(grp[i:])
+    return out
+
+
+def _expand_twins(placed):
+    """Replace each placed super-strip with its individual twin pieces."""
+    out = []
+    for pc in placed:
+        if "twins" not in pc:
+            out.append(pc)
+            continue
+        rot = abs(pc["pl"] - pc["long"]) >= 0.05     # long dim runs vertically
+        off = 0.0
+        for t in pc["twins"]:
+            tp = dict(t)
+            tp["sheet"] = pc["sheet"]
+            if rot:
+                tp["x"], tp["y"] = pc["x"], pc["y"] + off
+                tp["pl"], tp["ph"] = pc["pl"], t["long"]
+            else:
+                tp["x"], tp["y"] = pc["x"] + off, pc["y"]
+                tp["pl"], tp["ph"] = t["long"], pc["ph"]
+            off += t["long"]
+            out.append(tp)
+    return out
+
+
 def draw(parts, title, fname, unit="in", show_wedge=True):
-    pieces = sheet_pieces(parts)
+    pieces = _merge_twins(sheet_pieces(parts), SHEET_L)
     # Prefer the cut-friendly grouped layout, but never at the cost of an extra
     # sheet — fall back to the tighter shelf packing when it saves a sheet.
     c_placed, c_n = _pack_common([dict(p) for p in pieces])
@@ -217,8 +262,10 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
         placed, nsheets = c_placed, c_n
     else:
         for pc in s_placed:
-            pc["pl"], pc["ph"] = pc["long"], pc["short"]
+            pc.setdefault("pl", pc["long"])
+            pc.setdefault("ph", pc["short"])
         placed, nsheets = s_placed, s_n
+    placed = _expand_twins(placed)
 
     # number pieces in reading order (per sheet: top -> bottom, left -> right)
     order = sorted(placed, key=lambda p: (p["sheet"], -round(p["y"], 1),
