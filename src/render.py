@@ -1,5 +1,10 @@
-"""Render preview PNGs of the model with matplotlib (headless-safe)."""
+"""Static preview PNGs of the model (matplotlib, headless-safe).
+
+The interactive viewer.html is the primary way to inspect / explode the model;
+these are just quick thumbnails for the README.
+"""
 import os
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -8,64 +13,45 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import record_storage as m
 
-HERE = os.path.dirname(__file__)
-OUT = os.path.join(HERE, "..", "renders")
+OUT = os.path.join(os.path.dirname(__file__), "..", "renders")
 os.makedirs(OUT, exist_ok=True)
 
 
-def draw(mesh, color, ax, alpha=1.0):
-    tris = mesh.vertices[mesh.faces]
-    pc = Poly3DCollection(tris, alpha=alpha)
-    pc.set_facecolor(color)
-    pc.set_edgecolor((0, 0, 0, 0.12))
-    pc.set_linewidth(0.15)
-    ax.add_collection3d(pc)
-
-
-def view(elev, azim, fname):
+def view(parts, elev, azim, fname, explode=0.0):
     fig = plt.figure(figsize=(9, 7))
     ax = fig.add_subplot(111, projection="3d")
-    draw(m.wood_mesh, (0.59, 0.44, 0.28), ax)
-    draw(m.leg_mesh, (0.15, 0.15, 0.15), ax)
 
-    all_v = np.vstack([m.wood_mesh.vertices, m.leg_mesh.vertices])
-    mins, maxs = all_v.min(0), all_v.max(0)
-    center = (mins + maxs) / 2
-    span = (maxs - mins).max() / 2
-    ax.set_xlim(center[0] - span, center[0] + span)
-    ax.set_ylim(center[1] - span, center[1] + span)
-    ax.set_zlim(center[2] - span, center[2] + span)
+    allv = np.vstack([mesh.vertices for mesh in parts.values()])
+    center = (allv.min(0) + allv.max(0)) / 2
+
+    for name, mesh in parts.items():
+        v = mesh.vertices.copy()
+        if explode:
+            pc = (mesh.bounds[0] + mesh.bounds[1]) / 2
+            v = v + (pc - center) * explode
+        col = np.asarray(mesh.visual.face_colors)[0][:3] / 255.0
+        tris = v[mesh.faces]
+        p = Poly3DCollection(tris, alpha=1.0)
+        p.set_facecolor(col)
+        p.set_edgecolor((0, 0, 0, 0.12))
+        p.set_linewidth(0.15)
+        ax.add_collection3d(p)
+
+    span = (allv.max(0) - allv.min(0)).max() / 2 * (1 + explode * 0.9)
+    for lim, c in zip("xyz", center):
+        getattr(ax, f"set_{lim}lim")(c - span, c + span)
     ax.set_box_aspect((1, 1, 1))
     ax.view_init(elev=elev, azim=azim)
-    ax.set_xlabel("width")
-    ax.set_ylabel("depth")
-    ax.set_zlabel("height")
-    ax.set_title("Vinyl Record Storage  —  55¼ × 26¼ × 18½ in")
+    ax.set_xlabel("width"); ax.set_ylabel("depth"); ax.set_zlabel("height")
+    ax.set_title("8-Cubby Vinyl Record Storage  —  55¼ × 26¼ × 18½ in")
     fig.tight_layout()
-    path = os.path.join(OUT, fname)
-    fig.savefig(path, dpi=130)
+    fig.savefig(os.path.join(OUT, fname), dpi=130)
     plt.close(fig)
-    print("wrote", path)
-
-
-def profile():
-    """2D side profile sanity check."""
-    fig, ax = plt.subplots(figsize=(6, 5))
-    pts = np.array(m.side_profile_clean() + [m.side_profile_clean()[0]])
-    ax.plot(pts[:, 0], pts[:, 1], "-o", color="#8a6f47")
-    ax.fill(pts[:, 0], pts[:, 1], color="#8a6f47", alpha=0.25)
-    ax.set_aspect("equal")
-    ax.set_xlabel("depth (front → back)")
-    ax.set_ylabel("height")
-    ax.set_title("Side panel profile")
-    ax.grid(True, alpha=0.3)
-    path = os.path.join(OUT, "side_profile.png")
-    fig.savefig(path, dpi=130)
-    plt.close(fig)
-    print("wrote", path)
+    print("wrote", os.path.join(OUT, fname))
 
 
 if __name__ == "__main__":
-    profile()
-    view(22, -60, "iso_front.png")
-    view(18, -120, "iso_back.png")
+    parts = m.build_parts()
+    view(parts, 20, -60, "iso_front.png")
+    view(parts, 18, -120, "iso_back.png")
+    view(parts, 22, -60, "exploded.png", explode=0.6)
