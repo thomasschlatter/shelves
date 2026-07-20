@@ -8,6 +8,7 @@ produces a valid, readable layout. The wedge cut line is drawn on the sides.
 """
 import os
 import re
+from collections import Counter
 from fractions import Fraction
 
 import numpy as np
@@ -19,11 +20,11 @@ from matplotlib.lines import Line2D
 
 import record_storage as rs
 
-SHEET_L = 96.0   # 8 ft
-SHEET_W = 48.0   # 4 ft
-KERF = 0.0       # ignore saw kerf for layout clarity
-GAP = 0.25       # small visual gap between parts
 IN2CM = 2.54
+SHEET_L = 244.0 / IN2CM   # 96.06"  (244 cm)
+SHEET_W = 122.0 / IN2CM   # 48.03"  (122 cm)
+KERF = 0.0                # ignore saw kerf for layout clarity
+GAP = 0.1                 # ~2.5 mm gap/kerf between parts
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "plans")
 
@@ -102,14 +103,77 @@ def _pack_guillotine(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     return pieces, sheets
 
 
+def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
+    """Group pieces that share a dimension into the same full-length strip, most-
+    shared dimension first, so many pieces come off one rip. Returns
+    (placed, nsheets); each piece gets x, y, sheet, pl (horiz), ph (vert)."""
+    def key(v):
+        return round(v, 2)
+
+    def shares(p, d):
+        return abs(p["long"] - d) < 0.06 or abs(p["short"] - d) < 0.06
+
+    remaining = list(pieces)
+    strips = []
+    while remaining:
+        cnt = Counter()
+        for p in remaining:                      # tally valid rip widths
+            for d in {key(p["long"]), key(p["short"])}:
+                if d <= sheet_w + 1e-6:
+                    cnt[d] += 1
+        if cnt:                                   # most shared; ties -> shorter strip
+            d = max(cnt, key=lambda k: (cnt[k], -k))
+        else:                                     # nothing rippable; take smallest
+            d = min(min(p["long"], p["short"]) for p in remaining)
+
+        strip = {"h": d, "used": 0.0, "items": []}
+        strips.append(strip)
+        # Fill the strip: pieces that SHARE d first (grouped, share the rip),
+        # then any remaining piece short enough to sit in this strip's tail.
+        progress = True
+        while progress:
+            progress = False
+            cand = sorted(remaining, key=lambda p: (
+                0 if shares(p, d) else 1, -max(p["long"], p["short"])))
+            for p in cand:
+                if shares(p, d):
+                    h = d
+                    l = p["long"] if abs(p["short"] - d) < 0.06 else p["short"]
+                else:
+                    h, l = min(p["long"], p["short"]), max(p["long"], p["short"])
+                    if h > d + 1e-6:
+                        continue                  # too tall for this strip
+                if strip["used"] + l + GAP <= sheet_l + 1e-6:
+                    strip["items"].append((p, l, h))
+                    strip["used"] += l + GAP
+                    remaining.remove(p)
+                    progress = True
+                    break
+
+    strips.sort(key=lambda s: -s["h"])
+    sheets, y = 0, 0.0
+    for s in strips:
+        if sheets == 0 or y + s["h"] > sheet_w + 1e-6:
+            sheets += 1; y = 0.0
+        s["y"], s["sheet"] = y, sheets - 1
+        y += s["h"] + GAP
+    for s in strips:
+        x = 0.0
+        for p, l, h in s["items"]:
+            p["x"], p["y"], p["sheet"] = x, s["y"], s["sheet"]
+            p["pl"], p["ph"] = l, h
+            x += l + GAP
+    return pieces, sheets
+
+
 def draw(parts, title, fname, unit="in", show_wedge=True):
     pieces = sheet_pieces(parts)
-    # Prefer the cut-friendly guillotine layout, but never at the cost of an
-    # extra sheet — fall back to the tighter shelf packing when it saves a sheet.
-    g_placed, g_n = _pack_guillotine([dict(p) for p in pieces])
+    # Prefer the cut-friendly grouped layout, but never at the cost of an extra
+    # sheet — fall back to the tighter shelf packing when it saves a sheet.
+    c_placed, c_n = _pack_common([dict(p) for p in pieces])
     s_placed, s_n = _pack_tagged([dict(p) for p in pieces])
-    if g_n <= s_n:
-        placed, nsheets = g_placed, g_n
+    if c_n <= s_n:
+        placed, nsheets = c_placed, c_n
     else:
         for pc in s_placed:
             pc["pl"], pc["ph"] = pc["long"], pc["short"]
