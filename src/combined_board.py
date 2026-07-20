@@ -38,11 +38,10 @@ def main():
 
     title = ("Two shelves, one new 122x244 board — deep board-bin (bottom = your "
              "51.5x122 offcut) + shallow 2-level 2x12\" cabinet (~26 cm deep)")
-    placed = cutsheet.draw(merged, title, "cut_diagram_combined.png",
-                           unit="in", show_wedge=False)
+    placed = cutsheet.draw(merged, title, "cut_diagram_combined.png", unit="in")
     nsheets = max(p["sheet"] for p in placed) + 1
     cutsheet.draw(merged, title + "  (cm)", "cut_diagram_combined_cm.png",
-                  unit="cm", show_wedge=False)
+                  unit="cm")
     with open(os.path.join(here, "..", "plans", "cut_list_combined.txt"),
               "w", encoding="utf-8") as f:
         f.write(cutsheet.cut_list_text(

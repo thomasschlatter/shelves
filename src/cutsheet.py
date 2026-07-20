@@ -58,9 +58,13 @@ def sheet_pieces(parts):
         if name.startswith(("leg", "frame", "records")):
             continue
         dims = sorted(mesh.extents)          # ascending; dims[0] ~= 0.75 thick
-        out.append({"name": name, "long": round(dims[2], 3),
-                    "short": round(dims[1], 3),
-                    "wedge": name.startswith("side")})
+        thick, short, long = dims[0], dims[1], dims[2]
+        # a panel is a wedge if its actual face area is less than its bounding
+        # rectangle (an angled/trapezoid cut), detected from the mesh volume
+        face_area = mesh.volume / thick if thick > 1e-6 else short * long
+        is_wedge = face_area < short * long * 0.97
+        out.append({"name": name, "long": round(long, 3),
+                    "short": round(short, 3), "wedge": bool(is_wedge)})
     return out
 
 
@@ -179,10 +183,11 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
             pc["pl"], pc["ph"] = pc["long"], pc["short"]
         placed, nsheets = s_placed, s_n
 
-    fig, axes = plt.subplots(1, nsheets, figsize=(7.2 * nsheets, 4.2))
-    if nsheets == 1:
-        axes = [axes]
-    fig.suptitle(title, fontsize=13, weight="bold")
+    # number pieces in reading order (per sheet: top -> bottom, left -> right)
+    order = sorted(placed, key=lambda p: (p["sheet"], -round(p["y"], 1),
+                                          round(p["x"], 1)))
+    for i, pc in enumerate(order, 1):
+        pc["idx"] = i
 
     cmap = plt.get_cmap("Pastel1")
     color_by = {}
@@ -191,38 +196,63 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
                  else f"{SHEET_W*IN2CM:.0f} × {SHEET_L*IN2CM:.0f} × "
                       f"{thick*IN2CM:.1f} cm plywood")
 
-    for si, ax in enumerate(axes):
+    # legend geometry: 3 columns beneath the sheet(s)
+    leg_cols = 3
+    leg_rows = -(-len(order) // leg_cols)
+    leg_h = 0.5 + 0.20 * leg_rows
+    fig = plt.figure(figsize=(max(7.6 * nsheets, 9), 4.4 + leg_h))
+    gs = fig.add_gridspec(2, 1, height_ratios=[4.4, leg_h], hspace=0.05)
+    top = gs[0].subgridspec(1, nsheets, wspace=0.08)
+    fig.suptitle(title, fontsize=12.5, weight="bold")
+
+    ax_step = 24 if SHEET_L > 40 else 12
+    for si in range(nsheets):
+        ax = fig.add_subplot(top[si])
         ax.add_patch(Rectangle((0, 0), SHEET_L, SHEET_W, fill=False,
                                ec="#333", lw=2))
         ax.set_title(f"Sheet {si + 1}  ·  {sheet_lbl}", fontsize=10)
         for pc in placed:
             if pc["sheet"] != si:
                 continue
-            base = base_name(pc["name"])
-            color_by.setdefault(base, cmap(len(color_by) % 9))
+            color_by.setdefault(base_name(pc["name"]),
+                                cmap(len(color_by) % 9))
             x, y, L, Sh = pc["x"], pc["y"], pc["pl"], pc["ph"]
-            ax.add_patch(Rectangle((x, y), L, Sh, facecolor=color_by[base],
+            ax.add_patch(Rectangle((x, y), L, Sh,
+                                   facecolor=color_by[base_name(pc["name"])],
                                    ec="#555", lw=0.8))
-            if pc["wedge"] and show_wedge:  # wedge cut line on the side blanks
+            if pc["wedge"] and show_wedge:
                 ax.add_line(Line2D([x, x + L], [y, y + Sh],
                                    color="#c0392b", lw=1.1, ls="--"))
-            label = pc["name"].replace("_", " ")
-            ax.text(x + L / 2, y + Sh / 2,
-                    f"{label}\n{fmt(pc['long'], unit)} × {fmt(pc['short'], unit)}",
-                    ha="center", va="center", fontsize=7.2)
+            fs = max(5.5, min(11, min(L, Sh) * 1.7))   # number scaled to piece
+            ax.text(x + L / 2, y + Sh / 2, str(pc["idx"]),
+                    ha="center", va="center", fontsize=fs, weight="bold",
+                    color="#222")
         ax.set_xlim(-2, SHEET_L + 2)
         ax.set_ylim(-2, SHEET_W + 2)
         ax.set_aspect("equal")
-        ticks = [0, 24, 48, 72, 96]
-        ax.set_xticks(ticks)
-        ax.set_yticks([0, 24, 48])
+        xt = list(range(0, int(SHEET_L) + 1, ax_step))
+        yt = list(range(0, int(SHEET_W) + 1, ax_step))
+        ax.set_xticks(xt); ax.set_yticks(yt)
         if unit == "cm":
-            ax.set_xticklabels([f"{t * IN2CM:.0f}" for t in ticks])
-            ax.set_yticklabels([f"{t * IN2CM:.0f}" for t in [0, 24, 48]])
-        ax.set_xlabel("centimeters" if unit == "cm" else "inches")
+            ax.set_xticklabels([f"{t * IN2CM:.0f}" for t in xt])
+            ax.set_yticklabels([f"{t * IN2CM:.0f}" for t in yt])
+        ax.set_xlabel("centimeters" if unit == "cm" else "inches", fontsize=8)
+        ax.tick_params(labelsize=7)
+
+    # legend
+    legax = fig.add_subplot(gs[1])
+    legax.axis("off")
+    for i, pc in enumerate(order):
+        col, row = i % leg_cols, i // leg_cols
+        name = pc["name"].replace("_", " ")
+        txt = (f"{pc['idx']:>2}.  {name}  —  "
+               f"{fmt(pc['long'], unit)} × {fmt(pc['short'], unit)}")
+        legax.text(col / leg_cols, 1 - (row + 0.5) / leg_rows, txt,
+                   ha="left", va="center", fontsize=6.8, family="monospace",
+                   transform=legax.transAxes)
 
     os.makedirs(OUT, exist_ok=True)
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.subplots_adjust(left=0.05, right=0.98, top=0.9, bottom=0.04)
     path = os.path.join(OUT, fname)
     fig.savefig(path, dpi=150)
     plt.close(fig)
