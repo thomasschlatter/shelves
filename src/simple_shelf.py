@@ -23,8 +23,9 @@ T = rs.T                 # 3/4" plywood
 BAYS = 4                 # 4 compartments
 BAY_W = 8.0              # clear width per compartment (7 1/4" sleeve + room)
 DEPTH = 9.0              # front-to-back
-BACK_H = 8.0             # back panel height
-FRONT_H = 4.0            # front panel height (lower, so you can flip through)
+BACK_H = 8.0             # slanted: back panel height
+FRONT_H = 4.0            # slanted: front panel height (lower, to flip through)
+FLAT_H = 6.0             # flat version: front == back height
 DIV_H = 4.5              # divider height
 REC_N = 8                # records shown per compartment
 
@@ -34,9 +35,9 @@ IX0, IX1 = T, W - T
 AXIS_PERM = rs.AXIS_PERM
 
 
-def side(x0):
-    """Wedge side panel: DEPTH deep, BACK_H at back sloping to FRONT_H at front."""
-    poly = Polygon([(0, 0), (0, FRONT_H), (DEPTH, BACK_H), (DEPTH, 0)])
+def side(x0, front_h, back_h):
+    """Side panel: DEPTH deep. Wedge if front_h != back_h, rectangle if equal."""
+    poly = Polygon([(0, 0), (0, front_h), (DEPTH, back_h), (DEPTH, 0)])
     m = trimesh.creation.extrude_polygon(poly, height=T)
     m.apply_transform(AXIS_PERM)
     m.apply_translation(-m.bounds[0])
@@ -45,13 +46,13 @@ def side(x0):
     return m
 
 
-def build_parts(with_records=False):
+def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H):
     p = OrderedDict()
-    p["side_left"] = side(0.0)
-    p["side_right"] = side(W - T)
+    p["side_left"] = side(0.0, front_h, back_h)
+    p["side_right"] = side(W - T, front_h, back_h)
     p["bottom"] = rs.plate(IX0, IX1, 0, DEPTH, 0, T, rs.WOOD_STRUCT)
-    p["back"] = rs.plate(IX0, IX1, DEPTH - T, DEPTH, T, BACK_H, rs.WOOD_STRUCT)
-    p["front"] = rs.plate(IX0, IX1, 0, T, T, FRONT_H, rs.WOOD_STRUCT)
+    p["back"] = rs.plate(IX0, IX1, DEPTH - T, DEPTH, T, back_h, rs.WOOD_STRUCT)
+    p["front"] = rs.plate(IX0, IX1, 0, T, T, front_h, rs.WOOD_STRUCT)
 
     edges = np.linspace(IX0, IX1, BAYS + 1)
     for i, xc in enumerate(edges[1:-1], 1):
@@ -67,31 +68,32 @@ def build_parts(with_records=False):
     return p
 
 
-def main():
+def emit(slug, label, front_h, back_h):
     here = os.path.dirname(__file__)
-    parts = build_parts()
-    out = os.path.join(here, "..", "models", "simple_7inch")
-    rs.export(parts, out)
-    combined = trimesh.util.concatenate(list(parts.values()))
-    b = np.round(combined.bounds, 2)
-    print(f"[simple 7\"] {len(parts)} parts  "
+    parts = build_parts(front_h=front_h, back_h=back_h)
+    rs.export(parts, os.path.join(here, "..", "models", slug))
+    b = np.round(trimesh.util.concatenate(list(parts.values())).bounds, 2)
+    top = max(front_h, back_h)
+    print(f"[{label}] {len(parts)} parts  "
           f"W×D×H = {b[1][0]-b[0][0]:.2f} × {b[1][1]-b[0][1]:.2f} × "
-          f"{b[1][2]-b[0][2]:.2f} in  ({(b[1][0]-b[0][0])*2.54:.0f} cm wide)")
+          f"{top:.2f} in  ({(b[1][0]-b[0][0])*2.54:.0f} cm wide)")
 
-    # viewer + render + cut diagram
-    bv.write_viewer(build_parts(with_records=True),
-                    f"Simple 4× 7\" bin · {W:.2f} × {DEPTH} × {BACK_H} in",
-                    "viewer_simple_7inch.html")
-    render.hero(build_parts(with_records=True), 26, -60, "hero_simple_7inch.png")
-    cutsheet.draw(parts, 'Simple 4× 7" Record Bin — Cut Diagram',
-                  "cut_diagram_simple_7inch.png", unit="in")
-    cutsheet.draw(parts, 'Simple 4× 7" Record Bin — Cut Diagram (cm)',
-                  "cut_diagram_simple_7inch_cm.png", unit="cm")
-    with open(os.path.join(here, "..", "plans", "cut_list_simple_7inch.txt"),
+    rec = build_parts(with_records=True, front_h=front_h, back_h=back_h)
+    bv.write_viewer(rec, f"{label} · {W:.2f} × {DEPTH} × {top:.1f} in",
+                    f"viewer_{slug}.html")
+    render.hero(rec, 26, -60, f"hero_{slug}.png")
+    cutsheet.draw(parts, f'{label} — Cut Diagram', f"cut_diagram_{slug}.png", unit="in")
+    cutsheet.draw(parts, f'{label} — Cut Diagram (cm)',
+                  f"cut_diagram_{slug}_cm.png", unit="cm")
+    with open(os.path.join(here, "..", "plans", f"cut_list_{slug}.txt"),
               "w", encoding="utf-8") as f:
         f.write(cutsheet.cut_list_text(
-            parts, f'SIMPLE 4x 7" BIN  ({W:.2f}" / {W*2.54:.1f} cm wide)'))
-    print("wrote viewer_simple_7inch.html + plans + hero render")
+            parts, f'{label.upper()}  ({W:.2f}" / {W*2.54:.1f} cm wide)'))
+
+
+def main():
+    emit("simple_7inch", "Simple 4x 7\" bin (slanted)", FRONT_H, BACK_H)
+    emit("simple_7inch_flat", "Simple 4x 7\" bin (flat)", FLAT_H, FLAT_H)
 
 
 if __name__ == "__main__":

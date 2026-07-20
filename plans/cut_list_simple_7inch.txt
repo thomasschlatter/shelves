@@ -1,5 +1,5 @@
-SIMPLE 4x 7" BIN  (35.75" / 90.8 cm wide)
-=========================================
+SIMPLE 4X 7" BIN (SLANTED)  (35.75" / 90.8 cm wide)
+===================================================
 
 CUT LIST (3/4" / 19 mm plywood):
   qty  part                   inches           centimeters
