@@ -212,17 +212,25 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
                                        BACK_INNER - div_len, BACK_INNER,
                                        PLATFORM_Z1, btop)
 
-    # raised floor + front riser for each 7" section
+    # raised floor + sub-floor support + front retaining lip for each 7" bay.
+    # The lip rises above the raised floor so the elevated 45s can't slide out
+    # (the main front panel / shelf divider now sit below the raised floor).
     for c in seven:
         bx0, bx1 = cols[c]
-        p[f"seven_floor_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
-            FRONT_INNER + div_len, front7_floor - T, front7_floor, WOOD_STRUCT)
+        # front bay
         p[f"seven_riser_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
             FRONT_INNER + T, BOT_Z1, front7_floor - T, WOOD_STRUCT)
-        p[f"seven_floor_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
-            BACK_INNER, back7_floor - T, back7_floor, WOOD_STRUCT)
+        p[f"seven_floor_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
+            FRONT_INNER + div_len, front7_floor - T, front7_floor, WOOD_STRUCT)
+        p[f"seven_lip_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
+            FRONT_INNER + T, front7_floor, front7_floor + DIV_H, WOOD_STRUCT)
+        # back bay
         p[f"seven_riser_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
             PLATFORM_FRONT + T, PLATFORM_Z1, back7_floor - T, WOOD_STRUCT)
+        p[f"seven_floor_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
+            BACK_INNER, back7_floor - T, back7_floor, WOOD_STRUCT)
+        p[f"seven_lip_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
+            PLATFORM_FRONT + T, back7_floor, back7_floor + DIV_H, WOOD_STRUCT)
 
     # --- Records leaning in each cubby (optional) ------------------------
     if with_records:
@@ -231,11 +239,14 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
             size = RECORD7_SIZE if is7 else RECORD_SIZE
             fz = front7_floor if is7 else BOT_Z1
             bz = back7_floor if is7 else PLATFORM_Z1
+            # 7" records start just behind their front lip
+            fy = FRONT_INNER + (T + 0.3 if is7 else 0.5)
+            by = PLATFORM_FRONT + (T + 0.3 if is7 else 0.5)
             p[f"records_front_{k+1}"] = record_stack(
-                cx, FRONT_INNER + 0.5, fz, RECORDS_PER_CUBBY,
+                cx, fy, fz, RECORDS_PER_CUBBY,
                 RECORD_COLORS[k % len(RECORD_COLORS)], size)
             p[f"records_back_{k+1}"] = record_stack(
-                cx, PLATFORM_FRONT + 0.5, bz, RECORDS_PER_CUBBY,
+                cx, by, bz, RECORDS_PER_CUBBY,
                 RECORD_COLORS[(k + 4) % len(RECORD_COLORS)], size)
 
     # --- 2x2 support frame under the bottom (fills the 1 1/2" recess) -----
