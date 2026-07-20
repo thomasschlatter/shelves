@@ -62,6 +62,15 @@ def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H,
         p[f"divider_{i}"] = rs.plate(xc - T / 2, xc + T / 2, T, depth - T,
                                      T, T + DIV_H, rs.WOOD_STRUCT)
 
+    # 28" steel hairpin legs (same as the original Jen Woodhouse plan)
+    for name, cx, cy in [
+        ("leg_front_left",  rs.LEG_INSET,      rs.LEG_INSET),
+        ("leg_front_right", W - rs.LEG_INSET,  rs.LEG_INSET),
+        ("leg_back_left",   rs.LEG_INSET,      depth - rs.LEG_INSET),
+        ("leg_back_right",  W - rs.LEG_INSET,  depth - rs.LEG_INSET),
+    ]:
+        p[name] = rs.hairpin(cx, cy)
+
     if with_records:
         centers = (edges[:-1] + edges[1:]) / 2
         for k, cx in enumerate(centers):
