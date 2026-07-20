@@ -3,8 +3,8 @@ BOARD BIN — pieces to cut (bottom = existing 51.5 x 122 cm board)
 
 CUT LIST (3/4" / 19 mm plywood):
   qty  part                   inches           centimeters
-  (1) back                   48" x 5 1/4"     122.0 x 13.3 cm
-  (1) front                  48" x 5 1/4"     122.0 x 13.3 cm
+  (1) back                   48" x 5 2/15"    122.0 x 13.0 cm
+  (1) front                  48" x 5 2/15"    122.0 x 13.0 cm
   (1) side left              20 3/11" x 6"    51.5 x 15.2 cm
   (1) side right             20 3/11" x 6"    51.5 x 15.2 cm
-  (4) divider                18 7/9" x 4 1/2" 47.7 x 11.4 cm
+  (4) divider                18 6/11" x 4 1/2" 47.1 x 11.4 cm

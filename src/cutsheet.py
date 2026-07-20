@@ -340,7 +340,7 @@ def draw(parts, title, fname, unit="in", show_wedge=True, tries=400):
         if g not in color_by:
             color_by[g] = (GROUP_COLORS[len(color_by) % len(GROUP_COLORS)]
                            if has_groups else "#cfe2f3")
-    thick = 0.75
+    thick = rs.T
     sheet_lbl = ("4' × 8' × ¾\" plywood" if unit == "in"
                  else f"{SHEET_W*IN2CM:.0f} × {SHEET_L*IN2CM:.0f} × "
                       f"{thick*IN2CM:.1f} cm plywood")

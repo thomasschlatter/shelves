@@ -3,18 +3,18 @@ board-bin (no bottom) + compact 2-level 2x12 cabinet
 
 CUT LIST (3/4" / 19 mm plywood):
   qty  part                   inches           centimeters
-  (1) bin-back               48" x 5 1/4"     122.0 x 13.3 cm
-  (1) bin-front              48" x 5 1/4"     122.0 x 13.3 cm
-  (1) cab-back               26 1/2" x 18 1/2" 67.3 x 47.0 cm
-  (1) cab-front              26 1/2" x 7"     67.3 x 17.8 cm
-  (1) cab-bottom             26 1/2" x 12 3/4" 67.3 x 32.4 cm
-  (1) cab-shelf divider      26 1/2" x 10 1/2" 67.3 x 26.7 cm
-  (1) cab-back shelf support 26 1/2" x 5"     67.3 x 12.7 cm
-  (1) cab-back shelf bottom  26 1/2" x 6"     67.3 x 15.2 cm
+  (1) bin-back               48" x 5 2/15"    122.0 x 13.0 cm
+  (1) bin-front              48" x 5 2/15"    122.0 x 13.0 cm
+  (1) cab-back               26 8/13" x 18 1/2" 67.6 x 47.0 cm
+  (1) cab-front              26 8/13" x 7"    67.6 x 17.8 cm
+  (1) cab-bottom             26 8/13" x 12 13/15" 67.6 x 32.7 cm
+  (1) cab-shelf divider      26 8/13" x 10 1/2" 67.6 x 26.7 cm
+  (1) cab-back shelf support 26 8/13" x 5"    67.6 x 12.7 cm
+  (1) cab-back shelf bottom  26 8/13" x 6"    67.6 x 15.2 cm
   (1) bin-side left          20 3/11" x 6"    51.5 x 15.2 cm
   (1) bin-side right         20 3/11" x 6"    51.5 x 15.2 cm
-  (4) bin-divider            18 7/9" x 4 1/2" 47.7 x 11.4 cm
-  (1) cab-side left          18 1/2" x 14 1/4" 47.0 x 36.2 cm
-  (1) cab-side right         18 1/2" x 14 1/4" 47.0 x 36.2 cm
+  (4) bin-divider            18 6/11" x 4 1/2" 47.1 x 11.4 cm
+  (1) cab-side left          18 1/2" x 14 3/5" 47.0 x 37.1 cm
+  (1) cab-side right         18 1/2" x 14 3/5" 47.0 x 37.1 cm
   (1) cab-front divider      6" x 4 3/4"      15.2 x 12.1 cm
   (1) cab-back divider       6" x 4 3/4"      15.2 x 12.1 cm

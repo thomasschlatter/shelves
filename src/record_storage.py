@@ -30,7 +30,7 @@ from shapely.geometry import Polygon
 # --------------------------------------------------------------------------
 W = 55.25          # overall width  (53 3/4 inner + 2 x 3/4 sides)
 H = 18.50          # overall carcass height (top of back)
-T = 0.75           # plywood thickness
+T = 2.2 / 2.54     # plywood thickness = 22 mm (2.2 cm)
 
 FRONT_H = 7.00         # front panel height
 BOTTOM_RECESS = 1.50   # bottom panel sits 1 1/2" up from the carcass bottom

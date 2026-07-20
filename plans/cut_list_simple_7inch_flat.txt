@@ -1,11 +1,11 @@
-SIMPLE 5X 7" BIN (FLAT, DEEP)  (44.50" / 113.0 cm wide)
+SIMPLE 5X 7" BIN (FLAT, DEEP)  (45.20" / 114.8 cm wide)
 =======================================================
 
 CUT LIST (3/4" / 19 mm plywood):
   qty  part                   inches           centimeters
-  (1) bottom                 43" x 15 3/4"    109.2 x 40.0 cm
-  (1) back                   43" x 5 1/4"     109.2 x 13.3 cm
-  (1) front                  43" x 5 1/4"     109.2 x 13.3 cm
+  (1) bottom                 43 7/15" x 15 3/4" 110.4 x 40.0 cm
+  (1) back                   43 7/15" x 5 2/15" 110.4 x 13.0 cm
+  (1) front                  43 7/15" x 5 2/15" 110.4 x 13.0 cm
   (1) side left              15 3/4" x 6"     40.0 x 15.2 cm
   (1) side right             15 3/4" x 6"     40.0 x 15.2 cm
-  (4) divider                14 1/4" x 4 1/2" 36.2 x 11.4 cm
+  (4) divider                14" x 4 1/2"     35.6 x 11.4 cm
