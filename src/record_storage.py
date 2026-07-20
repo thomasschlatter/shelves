@@ -52,6 +52,7 @@ RECORD7_SIZE = 7.25    # 7" 45 rpm sleeve width & height
 RECORD_T = 0.22        # sleeve thickness
 RECORD_LEAN = 16.0     # lean-back angle from vertical (degrees)
 RECORDS_PER_CUBBY = 6
+SEVEN_BAY_W = 8.5      # clear width of a 7" (45 rpm) cubby
 RECORD_COLORS = [      # a few sleeve colours to vary the cubbies
     [196, 62, 55, 255], [63, 106, 148, 255], [222, 178, 74, 255],
     [86, 130, 96, 255], [150, 96, 148, 255], [70, 74, 82, 255],
@@ -176,16 +177,30 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
                                    PLATFORM_Z0, PLATFORM_Z1, WOOD_STRUCT)
 
     # --- Cubby layout: dividers, optional 7" sections, records -----------
-    edges = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)
-    centers = (edges[:-1] + edges[1:]) / 2
+    # 7" columns are narrower (SEVEN_BAY_W); the remaining width is split
+    # evenly among the 12" columns. Divider thickness is reserved separately.
     seven = set(seven_inch_cols or [])
+    n = CUBBIES_PER_TIER
+    if seven:
+        rest = (IX1 - IX0) - (n - 1) * T - len(seven) * SEVEN_BAY_W
+        w_other = rest / (n - len(seven))
+        widths = [SEVEN_BAY_W if c in seven else w_other for c in range(n)]
+    else:
+        widths = [((IX1 - IX0) - (n - 1) * T) / n] * n
+    cols, divs, x = [], [], IX0
+    for i, w in enumerate(widths):
+        cols.append((x, x + w)); x += w
+        if i < n - 1:
+            divs.append(x + T / 2); x += T
+    centers = [(a + b) / 2 for a, b in cols]
+
     tilt = np.cos(np.radians(RECORD_LEAN))
     lift = (RECORD_SIZE - RECORD7_SIZE) * tilt       # raise so 7" tops match 12"
     front7_floor = BOT_Z1 + lift
     back7_floor = PLATFORM_Z1 + lift
 
     # dividers — taller where they border a 7" section so the 45s stay put
-    for i, xc in enumerate(edges[1:-1], start=1):
+    for i, xc in enumerate(divs, start=1):
         borders7 = (i - 1 in seven) or (i in seven)
         ftop = (front7_floor if borders7 else BOT_Z1) + DIV_H
         btop = (back7_floor if borders7 else PLATFORM_Z1) + DIV_H
@@ -198,7 +213,7 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
 
     # raised floor + front riser for each 7" section
     for c in seven:
-        bx0, bx1 = edges[c] + T / 2, edges[c + 1] - T / 2
+        bx0, bx1 = cols[c]
         p[f"seven_floor_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
             FRONT_INNER + div_len, front7_floor - T, front7_floor, WOOD_STRUCT)
         p[f"seven_riser_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
