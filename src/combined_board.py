@@ -17,7 +17,7 @@ import board_bin
 import record_storage as rs
 import cutsheet
 
-CAB_ROW_DEPTH = 4.0   # 4" rows -> ~26 cm deep (lets the grouped cut fit 1 board)
+CAB_ROW_DEPTH = 8.0   # 8" rows -> ~46 cm deep (deepest that still fits 1 board)
 
 
 def plywood_only(parts, prefix):
@@ -37,7 +37,7 @@ def main():
     merged.update(plywood_only(shelf2, "cab-"))
 
     title = ("Two shelves, one new 122x244 board — deep board-bin (bottom = your "
-             "51.5x122 offcut) + shallow 2-level 2x12\" cabinet (~26 cm deep)")
+             "51.5x122 offcut) + 2-level 2x12\" cabinet (~46 cm deep)")
     placed = cutsheet.draw(merged, title, "cut_diagram_combined.png", unit="in")
     nsheets = max(p["sheet"] for p in placed) + 1
     cutsheet.draw(merged, title + "  (cm)", "cut_diagram_combined_cm.png",
