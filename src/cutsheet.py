@@ -252,20 +252,39 @@ def _expand_twins(placed):
     return out
 
 
+def _count_cuts(placed):
+    """Guillotine cut count for a strip layout: for each sheet the sheet is
+    sliced into strips (horizontal rips) then each strip into pieces + tail
+    waste (vertical crosscuts). #cuts = #rectangles - 1 per sheet."""
+    from collections import defaultdict
+    sheets = defaultdict(lambda: defaultdict(list))
+    for p in placed:
+        sheets[p["sheet"]][round(p["y"], 1)].append(p)
+    total = 0
+    for strips in sheets.values():
+        band, vcuts = 0.0, 0
+        for items in strips.values():
+            band += max(it["ph"] for it in items)
+            tail = sum(it["pl"] for it in items) < SHEET_L - 0.5
+            vcuts += (len(items) - 1) + (1 if tail else 0)
+        top_waste = band < SHEET_W - 0.5
+        total += (len(strips) - 1) + (1 if top_waste else 0) + vcuts
+    return total
+
+
 def draw(parts, title, fname, unit="in", show_wedge=True):
     pieces = _merge_twins(sheet_pieces(parts), SHEET_L)
-    # Prefer the cut-friendly grouped layout, but never at the cost of an extra
-    # sheet — fall back to the tighter shelf packing when it saves a sheet.
-    c_placed, c_n = _pack_common([dict(p) for p in pieces])
-    s_placed, s_n = _pack_tagged([dict(p) for p in pieces])
-    if c_n <= s_n:
-        placed, nsheets = c_placed, c_n
-    else:
-        for pc in s_placed:
+    # Try both packers; pick fewest sheets, then fewest guillotine cuts.
+    cands = []
+    for placed_raw, n in [_pack_common([dict(p) for p in pieces]),
+                          _pack_tagged([dict(p) for p in pieces])]:
+        for pc in placed_raw:
             pc.setdefault("pl", pc["long"])
             pc.setdefault("ph", pc["short"])
-        placed, nsheets = s_placed, s_n
-    placed = _expand_twins(placed)
+        exp = _expand_twins(placed_raw)
+        cands.append((n, _count_cuts(exp), exp))
+    cands.sort(key=lambda t: (t[0], t[1]))
+    nsheets, ncuts, placed = cands[0]
 
     # number pieces in reading order (per sheet: top -> bottom, left -> right)
     order = sorted(placed, key=lambda p: (p["sheet"], -round(p["y"], 1),
@@ -299,13 +318,15 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
     gs = fig.add_gridspec(2, 1, height_ratios=[4.4, leg_h], hspace=0.05)
     top = gs[0].subgridspec(1, nsheets, wspace=0.08)
     fig.suptitle(title, fontsize=12.5, weight="bold")
+    cut_note = f"{len(order)} pieces  ·  ~{ncuts} guillotine cuts"
 
     ax_step = 24 if SHEET_L > 40 else 12
     for si in range(nsheets):
         ax = fig.add_subplot(top[si])
         ax.add_patch(Rectangle((0, 0), SHEET_L, SHEET_W, fill=False,
                                ec="#333", lw=2))
-        ax.set_title(f"Sheet {si + 1}  ·  {sheet_lbl}", fontsize=10)
+        extra = f"  ·  {cut_note}" if si == 0 else ""
+        ax.set_title(f"Sheet {si + 1}  ·  {sheet_lbl}{extra}", fontsize=9.5)
         for pc in placed:
             if pc["sheet"] != si:
                 continue
