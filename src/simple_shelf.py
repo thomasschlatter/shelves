@@ -32,9 +32,9 @@ REC_N = 8
 
 # Flat variant — deeper (protrudes much more) and an extra compartment
 FLAT_BAYS = 5
-FLAT_DEPTH = 22.0
+FLAT_DEPTH = 15.75       # 40 cm — protrudes ~40 cm from the wall
 FLAT_H = 6.0             # front == back height
-FLAT_REC_N = 30          # deep bin holds a lot
+FLAT_REC_N = 22          # bin depth holds a good stack
 
 AXIS_PERM = rs.AXIS_PERM
 
