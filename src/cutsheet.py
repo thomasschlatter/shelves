@@ -63,9 +63,55 @@ def sheet_pieces(parts):
     return out
 
 
+def _pack_guillotine(pieces):
+    """Group pieces into full-length strips that share a common width, so the
+    sheet is cut by a few rips (one per strip) followed by crosscuts. Pieces
+    may rotate to match a strip's width. Returns (placed, nsheets); each piece
+    gets x, y, sheet, and placed dims pl (horizontal) / ph (vertical)."""
+    strips = []
+    for pc in sorted(pieces, key=lambda p: -max(p["long"], p["short"])):
+        a, b = pc["long"], pc["short"]
+        placed = False
+        for s in strips:                       # join a strip of matching width
+            for h, l in ((a, b), (b, a)):
+                if abs(s["h"] - h) < 1e-6 and s["used"] + l + GAP <= SHEET_L + 1e-6:
+                    s["items"].append((pc, l, h)); s["used"] += l + GAP
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:                          # new strip; width = piece's short
+            h, l = min(a, b), max(a, b)
+            strips.append({"h": h, "used": l + GAP, "items": [(pc, l, h)]})
+
+    strips.sort(key=lambda s: -s["h"])          # tidy: widest strips first
+    sheets, y = 0, 0.0
+    for s in strips:
+        if sheets == 0 or y + s["h"] > SHEET_W + 1e-6:
+            sheets += 1; y = 0.0
+        s["y"], s["sheet"] = y, sheets - 1
+        y += s["h"] + GAP
+    for s in strips:
+        x = 0.0
+        for pc, l, h in s["items"]:
+            pc["x"], pc["y"], pc["sheet"] = x, s["y"], s["sheet"]
+            pc["pl"], pc["ph"] = l, h
+            x += l + GAP
+    return pieces, sheets
+
+
 def draw(parts, title, fname, unit="in", show_wedge=True):
     pieces = sheet_pieces(parts)
-    placed, nsheets = _pack_tagged([dict(p) for p in pieces])
+    # Prefer the cut-friendly guillotine layout, but never at the cost of an
+    # extra sheet — fall back to the tighter shelf packing when it saves a sheet.
+    g_placed, g_n = _pack_guillotine([dict(p) for p in pieces])
+    s_placed, s_n = _pack_tagged([dict(p) for p in pieces])
+    if g_n <= s_n:
+        placed, nsheets = g_placed, g_n
+    else:
+        for pc in s_placed:
+            pc["pl"], pc["ph"] = pc["long"], pc["short"]
+        placed, nsheets = s_placed, s_n
 
     fig, axes = plt.subplots(1, nsheets, figsize=(7.2 * nsheets, 4.2))
     if nsheets == 1:
@@ -88,7 +134,7 @@ def draw(parts, title, fname, unit="in", show_wedge=True):
                 continue
             base = base_name(pc["name"])
             color_by.setdefault(base, cmap(len(color_by) % 9))
-            x, y, L, Sh = pc["x"], pc["y"], pc["long"], pc["short"]
+            x, y, L, Sh = pc["x"], pc["y"], pc["pl"], pc["ph"]
             ax.add_patch(Rectangle((x, y), L, Sh, facecolor=color_by[base],
                                    ec="#555", lw=0.8))
             if pc["wedge"] and show_wedge:  # wedge cut line on the side blanks
