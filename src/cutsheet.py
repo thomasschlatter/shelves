@@ -7,6 +7,7 @@ Uses a simple first-fit-decreasing shelf packer. Not guaranteed optimal, but
 produces a valid, readable layout. The wedge cut line is drawn on the sides.
 """
 import os
+import random
 import re
 from collections import Counter
 from fractions import Fraction
@@ -144,10 +145,12 @@ def _pack_guillotine(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     return pieces, sheets
 
 
-def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
+def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W, rng=None):
     """Group pieces that share a dimension into the same full-length strip, most-
-    shared dimension first, so many pieces come off one rip. Returns
-    (placed, nsheets); each piece gets x, y, sheet, pl (horiz), ph (vert)."""
+    shared dimension first, so many pieces come off one rip. With `rng` set, the
+    strip dimension is chosen randomly (weighted by how many pieces share it) so
+    a portfolio of runs explores different groupings. Returns (placed, nsheets);
+    each piece gets x, y, sheet, pl (horiz), ph (vert)."""
     def key(v):
         return round(v, 2)
 
@@ -162,10 +165,13 @@ def _pack_common(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
             for d in {key(p["long"]), key(p["short"])}:
                 if d <= sheet_w + 1e-6:
                     cnt[d] += 1
-        if cnt:                                   # most shared; ties -> shorter strip
-            d = max(cnt, key=lambda k: (cnt[k], -k))
-        else:                                     # nothing rippable; take smallest
+        if not cnt:                               # nothing rippable; take smallest
             d = min(min(p["long"], p["short"]) for p in remaining)
+        elif rng is None:                         # most shared; ties -> shorter strip
+            d = max(cnt, key=lambda k: (cnt[k], -k))
+        else:                                     # weighted-random dimension choice
+            dims = list(cnt)
+            d = rng.choices(dims, weights=[cnt[k] ** 2 for k in dims])[0]
 
         strip = {"h": d, "used": 0.0, "items": []}
         strips.append(strip)
@@ -278,28 +284,34 @@ def _count_cuts(placed, sheet_l=SHEET_L, sheet_w=SHEET_W):
     return total
 
 
-def draw(parts, title, fname, unit="in", show_wedge=True):
+def draw(parts, title, fname, unit="in", show_wedge=True, tries=400):
     base = sheet_pieces(parts)
-    # Try both packers AND both board orientations (strips along the 244 length,
-    # or along the 122 width). Rotation of pieces is already handled by the
-    # packers. Pick fewest sheets, then fewest guillotine cuts.
-    cands = []
-    for sl, sw, transpose in [(SHEET_L, SHEET_W, False), (SHEET_W, SHEET_L, True)]:
+    rng = random.Random(20240607)
+    best = [None]        # (nsheets, cuts, placed)
+
+    def consider(placed_raw, n, sl, sw, transpose):
+        for pc in placed_raw:
+            pc.setdefault("pl", pc["long"])
+            pc.setdefault("ph", pc["short"])
+        exp = _expand_twins(placed_raw)
+        cuts = _count_cuts(exp, sl, sw)
+        if transpose:                              # map strip space -> real board
+            for pc in exp:
+                pc["x"], pc["y"] = pc["y"], pc["x"]
+                pc["pl"], pc["ph"] = pc["ph"], pc["pl"]
+        if best[0] is None or (n, cuts) < (best[0][0], best[0][1]):
+            best[0] = (n, cuts, exp)
+
+    # Portfolio: both orientations x {grouping packer, shelf packer, and many
+    # randomized grouping runs}. Keep fewest sheets, then fewest guillotine cuts.
+    for sl, sw, tr in [(SHEET_L, SHEET_W, False), (SHEET_W, SHEET_L, True)]:
         merged = _merge_twins([dict(p) for p in base], sl)
-        for packer in (_pack_common, _pack_tagged):
-            placed_raw, n = packer([dict(p) for p in merged], sl, sw)
-            for pc in placed_raw:
-                pc.setdefault("pl", pc["long"])
-                pc.setdefault("ph", pc["short"])
-            exp = _expand_twins(placed_raw)
-            cuts = _count_cuts(exp, sl, sw)
-            if transpose:                          # map strip space -> real board
-                for pc in exp:
-                    pc["x"], pc["y"] = pc["y"], pc["x"]
-                    pc["pl"], pc["ph"] = pc["ph"], pc["pl"]
-            cands.append((n, cuts, exp))
-    cands.sort(key=lambda t: (t[0], t[1]))
-    nsheets, ncuts, placed = cands[0]
+        consider(*_pack_common([dict(p) for p in merged], sl, sw), sl, sw, tr)
+        consider(*_pack_tagged([dict(p) for p in merged], sl, sw), sl, sw, tr)
+        for _ in range(tries):
+            consider(*_pack_common([dict(p) for p in merged], sl, sw, rng),
+                     sl, sw, tr)
+    nsheets, ncuts, placed = best[0]
 
     # number pieces in reading order (per sheet: top -> bottom, left -> right)
     order = sorted(placed, key=lambda p: (p["sheet"], -round(p["y"], 1),
