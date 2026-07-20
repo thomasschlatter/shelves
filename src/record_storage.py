@@ -139,12 +139,17 @@ def record_stack(cx, y_front, z_floor, n, color, size=RECORD_SIZE):
     return stack
 
 
-def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=None):
+def build_parts(row_depth=ROW_DEPTH_STD, with_records=False,
+                seven_inch_cols=None, layout=None):
     """OrderedDict {part_name: Trimesh} for the given per-row depth (inches).
 
-    seven_inch_cols: iterable of column indices (0..CUBBIES_PER_TIER-1) whose
-    cubbies are sized for 7" 45s — narrower bays holding smaller sleeves that
-    sit on the same floor as the 12" LPs (bottom edges aligned).
+    Column layout (left -> right) is either:
+      * `layout`: an explicit list of "lp"/"7" bay kinds, e.g.
+        ["lp", "7", "7", "7", "lp"] for 2 LP columns flanking 3 seven-inch bays; or
+      * `seven_inch_cols`: indices into CUBBIES_PER_TIER equal columns to convert
+        to 7" bays (e.g. {1, 2} for the two middle columns).
+    7" bays are narrower and hold shorter sleeves that share the LP floor
+    (bottom edges aligned). Overall width is derived from the bay widths.
     """
     D = overall_depth(row_depth)
     div_len = row_depth                        # dividers span the full row depth
@@ -152,9 +157,12 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
     # width is DERIVED from the cubby widths (LP bays match the original plan;
     # 7" bays are narrower) — the overall cabinet gets narrower rather than
     # stretching the LP columns.
-    seven = set(seven_inch_cols or [])
-    n = CUBBIES_PER_TIER
-    widths = [SEVEN_BAY_W if c in seven else LP_BAY_W for c in range(n)]
+    if layout is None:
+        layout = ["lp"] * CUBBIES_PER_TIER
+        for c in (seven_inch_cols or []):
+            layout[c] = "7"
+    n = len(layout)
+    widths = [SEVEN_BAY_W if k == "7" else LP_BAY_W for k in layout]
     inner_w = sum(widths) + (n - 1) * T
     Wloc = inner_w + 2 * T
     ix0, ix1 = T, Wloc - T
@@ -210,7 +218,7 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=Non
     # panel and shelf divider retain them exactly like the LPs.
     if with_records:
         for k, cx in enumerate(centers):
-            size = RECORD7_SIZE if k in seven else RECORD_SIZE
+            size = RECORD7_SIZE if layout[k] == "7" else RECORD_SIZE
             p[f"records_front_{k+1}"] = record_stack(
                 cx, FRONT_INNER + 0.5, BOT_Z1, RECORDS_PER_CUBBY,
                 RECORD_COLORS[k % len(RECORD_COLORS)], size)
@@ -287,3 +295,11 @@ if __name__ == "__main__":
     seven = build_parts(ROW_DEPTH_STD, seven_inch_cols={1, 2})
     export(seven, os.path.join(here, "..", "models", "seven_inch"))
     _report("7-in mid  row=12", seven)
+
+    seven_compact = build_parts(ROW_DEPTH_COMPACT, seven_inch_cols={1, 2})
+    export(seven_compact, os.path.join(here, "..", "models", "compact_seven_inch"))
+    _report("7-in cmpt row=8 ", seven_compact)
+
+    three7 = build_parts(ROW_DEPTH_STD, layout=["lp", "7", "7", "7", "lp"])
+    export(three7, os.path.join(here, "..", "models", "three_seven_inch"))
+    _report("3x7 mid   row=12", three7)
