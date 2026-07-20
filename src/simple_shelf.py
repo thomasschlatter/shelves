@@ -20,7 +20,8 @@ import cutsheet
 
 # --- Parameters (inches) --------------------------------------------------
 T = rs.T                 # 3/4" plywood
-BAY_W = 8.0              # clear width per compartment (7 1/4" sleeve + room)
+BAY_W = 8.0              # clear width per 7" compartment (7 1/4" sleeve + room)
+LP_BAY_W = 13.0          # clear width per 12" LP compartment
 DIV_H = 4.5              # divider height
 
 # Slanted variant
