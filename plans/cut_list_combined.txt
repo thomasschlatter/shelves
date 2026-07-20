@@ -7,14 +7,14 @@ CUT LIST (3/4" / 19 mm plywood):
   (1) bin-front              48" x 5 1/4"     122.0 x 13.3 cm
   (1) cab-back               26 1/2" x 18 1/2" 67.3 x 47.0 cm
   (1) cab-front              26 1/2" x 7"     67.3 x 17.8 cm
-  (1) cab-bottom             26 1/2" x 16 3/4" 67.3 x 42.5 cm
+  (1) cab-bottom             26 1/2" x 8 3/4" 67.3 x 22.2 cm
   (1) cab-shelf divider      26 1/2" x 10 1/2" 67.3 x 26.7 cm
   (1) cab-back shelf support 26 1/2" x 5"     67.3 x 12.7 cm
-  (1) cab-back shelf bottom  26 1/2" x 8"     67.3 x 20.3 cm
+  (1) cab-back shelf bottom  26 1/2" x 4"     67.3 x 10.2 cm
   (1) bin-side left          20 3/11" x 6"    51.5 x 15.2 cm
   (1) bin-side right         20 3/11" x 6"    51.5 x 15.2 cm
   (4) bin-divider            18 7/9" x 4 1/2" 47.7 x 11.4 cm
-  (1) cab-side left          18 1/2" x 18 1/4" 47.0 x 46.4 cm
-  (1) cab-side right         18 1/2" x 18 1/4" 47.0 x 46.4 cm
-  (1) cab-front divider      8" x 4 3/4"      20.3 x 12.1 cm
-  (1) cab-back divider       8" x 4 3/4"      20.3 x 12.1 cm
+  (1) cab-side left          18 1/2" x 10 1/4" 47.0 x 26.0 cm
+  (1) cab-side right         18 1/2" x 10 1/4" 47.0 x 26.0 cm
+  (1) cab-front divider      4 3/4" x 4"      12.1 x 10.2 cm
+  (1) cab-back divider       4 3/4" x 4"      12.1 x 10.2 cm
