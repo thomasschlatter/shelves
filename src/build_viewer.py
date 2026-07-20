@@ -341,6 +341,9 @@ def main():
                  "Standard · 55¼ × 26¼ × 18½ in", "viewer.html")
     write_viewer(m.build_parts(m.ROW_DEPTH_COMPACT, with_records=True),
                  "Compact · 55¼ × 18¼ × 18½ in", "viewer_compact.html")
+    write_viewer(m.build_parts(m.ROW_DEPTH_STD, with_records=True,
+                               seven_inch_cols={1, 2}),
+                 "7\" middle sections · 55¼ × 26¼ × 18½ in", "viewer_7inch.html")
 
 
 if __name__ == "__main__":

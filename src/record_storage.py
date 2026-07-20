@@ -47,7 +47,8 @@ LEG_HEIGHT = 28.0      # 28" hairpin legs
 LEG_INSET = 3.0
 
 # Records (12" LP + sleeve ~= 12.5" square) --------------------------------
-RECORD_SIZE = 12.5     # sleeve width & height
+RECORD_SIZE = 12.5     # 12" LP sleeve width & height
+RECORD7_SIZE = 7.25    # 7" 45 rpm sleeve width & height
 RECORD_T = 0.22        # sleeve thickness
 RECORD_LEAN = 16.0     # lean-back angle from vertical (degrees)
 RECORDS_PER_CUBBY = 6
@@ -118,7 +119,7 @@ def hairpin(cx, cy):
     return leg
 
 
-def record_stack(cx, y_front, z_floor, n, color):
+def record_stack(cx, y_front, z_floor, n, color, size=RECORD_SIZE):
     """A leaning stack of n record sleeves in one cubby, merged to one mesh.
     Sleeves stand on z_floor, front edge at y_front, leaning back by RECORD_LEAN."""
     lean = np.radians(RECORD_LEAN)
@@ -126,8 +127,8 @@ def record_stack(cx, y_front, z_floor, n, color):
     rot = trimesh.transformations.rotation_matrix(-lean, [1, 0, 0])
     recs = []
     for i in range(n):
-        r = trimesh.creation.box(extents=(RECORD_SIZE, RECORD_T, RECORD_SIZE))
-        r.apply_translation((0, RECORD_T / 2, RECORD_SIZE / 2))  # corner at origin
+        r = trimesh.creation.box(extents=(size, RECORD_T, size))
+        r.apply_translation((0, RECORD_T / 2, size / 2))         # corner at origin
         r.apply_transform(rot)                                   # lean back
         r.apply_translation((cx, y_front + i * step, z_floor))
         recs.append(r)
@@ -136,8 +137,14 @@ def record_stack(cx, y_front, z_floor, n, color):
     return stack
 
 
-def build_parts(row_depth=ROW_DEPTH_STD, with_records=False):
-    """OrderedDict {part_name: Trimesh} for the given per-row depth (inches)."""
+def build_parts(row_depth=ROW_DEPTH_STD, with_records=False, seven_inch_cols=None):
+    """OrderedDict {part_name: Trimesh} for the given per-row depth (inches).
+
+    seven_inch_cols: iterable of column indices (0..CUBBIES_PER_TIER-1) whose
+    front & back cubbies are fitted out for 7" 45s — a raised floor lifts the
+    smaller sleeves so their tops line up with the 12" records, and the
+    bordering dividers are made taller to contain them.
+    """
     D = overall_depth(row_depth)
     div_len = row_depth                        # dividers span the full row depth
 
@@ -168,29 +175,52 @@ def build_parts(row_depth=ROW_DEPTH_STD, with_records=False):
     p["back_shelf_bottom"] = plate(IX0, IX1, PLATFORM_FRONT, BACK_INNER,
                                    PLATFORM_Z0, PLATFORM_Z1, WOOD_STRUCT)
 
-    # --- Record dividers: 3 per tier -> 4 cubbies each --------------------
-    xs = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)[1:-1]
-    for j, xc in enumerate(xs, 1):
-        p[f"front_divider_{j}"] = plate(
-            xc - T / 2, xc + T / 2, FRONT_INNER, FRONT_INNER + div_len,
-            BOT_Z1, BOT_Z1 + DIV_H)
-    for j, xc in enumerate(xs, 1):
-        p[f"back_divider_{j}"] = plate(
-            xc - T / 2, xc + T / 2, BACK_INNER - div_len, BACK_INNER,
-            PLATFORM_Z1, PLATFORM_Z1 + DIV_H)
+    # --- Cubby layout: dividers, optional 7" sections, records -----------
+    edges = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)
+    centers = (edges[:-1] + edges[1:]) / 2
+    seven = set(seven_inch_cols or [])
+    tilt = np.cos(np.radians(RECORD_LEAN))
+    lift = (RECORD_SIZE - RECORD7_SIZE) * tilt       # raise so 7" tops match 12"
+    front7_floor = BOT_Z1 + lift
+    back7_floor = PLATFORM_Z1 + lift
+
+    # dividers — taller where they border a 7" section so the 45s stay put
+    for i, xc in enumerate(edges[1:-1], start=1):
+        borders7 = (i - 1 in seven) or (i in seven)
+        ftop = (front7_floor if borders7 else BOT_Z1) + DIV_H
+        btop = (back7_floor if borders7 else PLATFORM_Z1) + DIV_H
+        p[f"front_divider_{i}"] = plate(xc - T / 2, xc + T / 2,
+                                        FRONT_INNER, FRONT_INNER + div_len,
+                                        BOT_Z1, ftop)
+        p[f"back_divider_{i}"] = plate(xc - T / 2, xc + T / 2,
+                                       BACK_INNER - div_len, BACK_INNER,
+                                       PLATFORM_Z1, btop)
+
+    # raised floor + front riser for each 7" section
+    for c in seven:
+        bx0, bx1 = edges[c] + T / 2, edges[c + 1] - T / 2
+        p[f"seven_floor_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
+            FRONT_INNER + div_len, front7_floor - T, front7_floor, WOOD_STRUCT)
+        p[f"seven_riser_front_{c}"] = plate(bx0, bx1, FRONT_INNER,
+            FRONT_INNER + T, BOT_Z1, front7_floor - T, WOOD_STRUCT)
+        p[f"seven_floor_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
+            BACK_INNER, back7_floor - T, back7_floor, WOOD_STRUCT)
+        p[f"seven_riser_back_{c}"] = plate(bx0, bx1, PLATFORM_FRONT,
+            PLATFORM_FRONT + T, PLATFORM_Z1, back7_floor - T, WOOD_STRUCT)
 
     # --- Records leaning in each cubby (optional) ------------------------
     if with_records:
-        edges = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)
-        centers = (edges[:-1] + edges[1:]) / 2
         for k, cx in enumerate(centers):
+            is7 = k in seven
+            size = RECORD7_SIZE if is7 else RECORD_SIZE
+            fz = front7_floor if is7 else BOT_Z1
+            bz = back7_floor if is7 else PLATFORM_Z1
             p[f"records_front_{k+1}"] = record_stack(
-                cx, FRONT_INNER + 0.5, BOT_Z1, RECORDS_PER_CUBBY,
-                RECORD_COLORS[k % len(RECORD_COLORS)])
-        for k, cx in enumerate(centers):
+                cx, FRONT_INNER + 0.5, fz, RECORDS_PER_CUBBY,
+                RECORD_COLORS[k % len(RECORD_COLORS)], size)
             p[f"records_back_{k+1}"] = record_stack(
-                cx, PLATFORM_FRONT + 0.5, PLATFORM_Z1, RECORDS_PER_CUBBY,
-                RECORD_COLORS[(k + 4) % len(RECORD_COLORS)])
+                cx, PLATFORM_FRONT + 0.5, bz, RECORDS_PER_CUBBY,
+                RECORD_COLORS[(k + 4) % len(RECORD_COLORS)], size)
 
     # --- 2x2 support frame under the bottom (fills the 1 1/2" recess) -----
     fz0, fz1 = 0.0, TWO_BY
@@ -257,3 +287,7 @@ if __name__ == "__main__":
     compact = build_parts(ROW_DEPTH_COMPACT)
     export(compact, os.path.join(here, "..", "models", "compact"))
     _report("compact   row=8 ", compact)
+
+    seven = build_parts(ROW_DEPTH_STD, seven_inch_cols={1, 2})
+    export(seven, os.path.join(here, "..", "models", "seven_inch"))
+    _report("7-in mid  row=12", seven)

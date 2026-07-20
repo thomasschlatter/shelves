@@ -97,3 +97,6 @@ if __name__ == "__main__":
 
     vinyl = m.build_parts(m.ROW_DEPTH_STD, with_records=True)
     hero(vinyl, 26, -58, "hero_with_vinyl.png")
+
+    seven = m.build_parts(m.ROW_DEPTH_STD, with_records=True, seven_inch_cols={1, 2})
+    hero(seven, 24, -58, "hero_7inch.png")
