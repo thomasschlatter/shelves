@@ -307,3 +307,12 @@ if __name__ == "__main__":
     three7c = build_parts(ROW_DEPTH_COMPACT, layout=["lp", "7", "7", "7", "lp"])
     export(three7c, os.path.join(here, "..", "models", "compact_three_seven_inch"))
     _report("3x7 cmpt  row=8 ", three7c)
+
+    four_layout = ["lp", "7", "7", "7", "7", "lp"]
+    four7 = build_parts(ROW_DEPTH_STD, layout=four_layout)
+    export(four7, os.path.join(here, "..", "models", "four_seven_inch"))
+    _report("4x7 mid   row=12", four7)
+
+    four7c = build_parts(ROW_DEPTH_COMPACT, layout=four_layout)
+    export(four7c, os.path.join(here, "..", "models", "compact_four_seven_inch"))
+    _report("4x7 cmpt  row=8 ", four7c)

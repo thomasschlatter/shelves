@@ -100,3 +100,7 @@ if __name__ == "__main__":
 
     seven = m.build_parts(m.ROW_DEPTH_STD, with_records=True, seven_inch_cols={1, 2})
     hero(seven, 24, -58, "hero_7inch.png")
+
+    four = m.build_parts(m.ROW_DEPTH_STD, with_records=True,
+                         layout=["lp", "7", "7", "7", "7", "lp"])
+    hero(four, 22, -58, "hero_2lp_4x7.png")

@@ -204,3 +204,13 @@ if __name__ == "__main__":
     with open(os.path.join(OUT, "cut_list_2lp_3x7.txt"), "w", encoding="utf-8") as f:
         f.write(cut_list_text(v, "2x 12\" + 3x 7\"  (55 3/4\" / 141.6 cm wide)"))
     print("wrote", os.path.join(OUT, "cut_diagram_2lp_3x7.png"))
+
+    # 2x 12" + 4x 7" variant (65" / 165.1 cm wide)
+    v4 = rs.build_parts(rs.ROW_DEPTH_STD, layout=["lp", "7", "7", "7", "7", "lp"])
+    draw(v4, '2×12" + 4×7" Vinyl Record Storage — Cut Diagram (65" wide)',
+         "cut_diagram_2lp_4x7.png", unit="in")
+    draw(v4, "2×12\" + 4×7\" Vinyl Record Storage — Cut Diagram (165.1 cm wide)",
+         "cut_diagram_2lp_4x7_cm.png", unit="cm")
+    with open(os.path.join(OUT, "cut_list_2lp_4x7.txt"), "w", encoding="utf-8") as f:
+        f.write(cut_list_text(v4, "2x 12\" + 4x 7\"  (65\" / 165.1 cm wide)"))
+    print("wrote", os.path.join(OUT, "cut_diagram_2lp_4x7.png"))
