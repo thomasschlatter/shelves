@@ -1,0 +1,15 @@
+2x 12" + 3x 7"  (55 3/4" / 141.6 cm wide)
+=========================================
+
+CUT LIST (3/4" / 19 mm plywood):
+  qty  part                   inches           centimeters
+  (1) back                   54 1/4" x 18 1/2" 137.8 x 47.0 cm
+  (1) front                  54 1/4" x 7"     137.8 x 17.8 cm
+  (1) bottom                 54 1/4" x 24 3/4" 137.8 x 62.9 cm
+  (1) shelf divider          54 1/4" x 10 1/2" 137.8 x 26.7 cm
+  (1) back shelf support     54 1/4" x 5"     137.8 x 12.7 cm
+  (1) back shelf bottom      54 1/4" x 12"    137.8 x 30.5 cm
+  (1) side left              26 1/4" x 18 1/2" 66.7 x 47.0 cm
+  (1) side right             26 1/4" x 18 1/2" 66.7 x 47.0 cm
+  (4) front divider          12" x 4 3/4"     30.5 x 12.1 cm
+  (4) back divider           12" x 4 3/4"     30.5 x 12.1 cm
