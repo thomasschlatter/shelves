@@ -5,10 +5,21 @@ built to the official published cut list and assembly steps.
 
 Reference / plans: <https://jenwoodhouse.com/vinyl-record-storage/>
 
+## Variants
+
+| Variant | Row depth | Overall depth | Viewer |
+|---------|----------:|--------------:|--------|
+| **Standard** (original plan) | 12″ | 26¼″ | `viewer.html` |
+| **Compact** (protrudes less) | 8″ | 18¼″ | `viewer_compact.html` |
+
+The compact version keeps both rows, all four cubbies per row, and every height
+identical — only each row is made shallower so the cabinet sticks out ~8″ less
+from the wall.
+
 ## Interactive viewer
 
-Open **`viewer.html`** in a browser (double-click). It renders the model with
-real lighting and lets you:
+Open **`viewer.html`** (or **`viewer_compact.html`**) in a browser
+(double-click). It renders the model with real lighting and lets you:
 
 - **Explode** the assembly with a slider to pull every board apart
 - **Show / hide** or **isolate** any individual part
@@ -46,11 +57,10 @@ lean against the full-height back panel. The side panels are cut to a wedge —
 ## Usage
 
 ```bash
-pip install numpy trimesh shapely
-python src/record_storage.py     # -> models/*.stl, *.obj, *.glb + models/parts/*.stl
-python src/build_viewer.py       # -> viewer.html (geometry baked in)
-
-pip install matplotlib
+pip install numpy trimesh shapely matplotlib
+python src/record_storage.py     # -> models/ (standard) + models/compact/  (GLB/STL/OBJ + parts)
+python src/build_viewer.py       # -> viewer.html + viewer_compact.html (geometry baked in)
+python src/cutsheet.py           # -> plans/cut_diagram_*.png + plans/cut_list.txt
 python src/render.py             # -> renders/*.png static previews
 ```
 
@@ -60,10 +70,14 @@ and everything rebuilds.
 
 ## Outputs
 
-- `models/vinyl_record_storage.glb` — named-node scene (each board selectable)
-- `models/vinyl_record_storage.stl` / `.obj` — whole assembly
-- `models/parts/*.stl` — one file per constituent piece (24 parts)
-- `viewer.html` — self-contained interactive exploded viewer
+- `models/` and `models/compact/` — GLB (named nodes) + whole-assembly STL/OBJ + `parts/*.stl` per board
+- `viewer.html` / `viewer_compact.html` — self-contained interactive exploded viewers
+- `plans/cut_diagram_*.png` — plywood sheet-nesting cut diagrams (inch **and** `_cm` versions)
+- `plans/cut_list.txt` — grouped cut list, both variants, in inches **and** centimeters
+
+The viewers also show ~6 leaning **12½″ record sleeves** per cubby (toggle with
+the *Records* button). All centimetre figures are computed from the inch
+dimensions (× 2.54), not entered separately.
 
 ## Repository layout
 

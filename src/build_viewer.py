@@ -93,7 +93,7 @@ HTML = r"""<!doctype html>
 <div id="app"></div>
 <div id="panel">
   <h1>Vinyl Record Storage</h1>
-  <div class="sub">55¼ × 26¼ × 18½ in · __NPARTS__ parts</div>
+  <div class="sub">__SUBTITLE__ · __NPARTS__ parts</div>
   <div class="row">
     <label>Explode</label>
     <input id="explode" type="range" min="0" max="100" value="0">
@@ -104,8 +104,11 @@ HTML = r"""<!doctype html>
     <button id="btnWire">Wireframe</button>
   </div>
   <div class="btns">
-    <button id="btnAll">Show all</button>
+    <button id="btnRecords" class="active">Records</button>
     <button id="btnLegs">Toggle legs</button>
+  </div>
+  <div class="btns">
+    <button id="btnAll">Show all</button>
     <button id="btnReset">Reset view</button>
   </div>
   <div class="parts" id="parts"></div>
@@ -287,13 +290,20 @@ bW.onclick = () => {
 };
 document.getElementById('btnAll').onclick = showAll;
 document.getElementById('btnReset').onclick = frameView;
-document.getElementById('btnLegs').onclick = () => {
+function toggleGroup(prefix) {
   for (const mesh of meshes) {
-    if (mesh.userData.name.startsWith('leg')) {
+    if (mesh.userData.name.startsWith(prefix)) {
       mesh.visible = !mesh.visible;
       rowByName[mesh.userData.name].classList.toggle('off', !mesh.visible);
     }
   }
+}
+document.getElementById('btnLegs').onclick = () => toggleGroup('leg');
+const bRec = document.getElementById('btnRecords');
+bRec.onclick = () => {
+  toggleGroup('records');
+  const anyOn = meshes.some(m => m.userData.name.startsWith('records') && m.visible);
+  bRec.classList.toggle('active', anyOn);
 };
 
 addEventListener('resize', () => {
@@ -314,16 +324,23 @@ addEventListener('resize', () => {
 """
 
 
-def main():
-    parts = m.build_parts()
+def write_viewer(parts, subtitle, filename):
     payload = part_payload(parts)
     html = (HTML
             .replace("__DATA__", json.dumps(payload))
-            .replace("__NPARTS__", str(len(parts))))
-    path = os.path.join(OUT, "viewer.html")
+            .replace("__NPARTS__", str(len(parts)))
+            .replace("__SUBTITLE__", subtitle))
+    path = os.path.join(OUT, filename)
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
     print("wrote", path, f"({len(parts)} parts, {os.path.getsize(path)//1024} KB)")
+
+
+def main():
+    write_viewer(m.build_parts(m.ROW_DEPTH_STD, with_records=True),
+                 "Standard · 55¼ × 26¼ × 18½ in", "viewer.html")
+    write_viewer(m.build_parts(m.ROW_DEPTH_COMPACT, with_records=True),
+                 "Compact · 55¼ × 18¼ × 18½ in", "viewer_compact.html")
 
 
 if __name__ == "__main__":

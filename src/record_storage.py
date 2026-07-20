@@ -2,23 +2,15 @@
 Parametric 3D model of the Jen Woodhouse "8-Cubby Vinyl Record Storage".
 
 Reference: https://jenwoodhouse.com/vinyl-record-storage/
-Built to the OFFICIAL cut list & assembly (8-Cubby plan, © 2018 Jen Woodhouse):
-
-  CUT LIST (3/4" plywood unless noted)
-    (1) bottom             53 3/4 x 24 3/4
-    (1) back               53 3/4 x 18 1/2
-    (1) back shelf bottom  53 3/4 x 12          (raised back-tier floor)
-    (1) back shelf support 53 3/4 x 5           (riser under back shelf)
-    (1) shelf divider      53 3/4 x 10 1/2      (step wall, front/back tiers)
-    (6) record dividers    12 x 4 3/4           (3 per tier -> 4 cubbies each)
-    (2) sides              26 1/4 x 18 1/2      (cut to a wedge)
-    (1) front              53 3/4 x 7
-    (3) 2x2 x 8 ft boards  -> support frame under the bottom
-    (4) 28" steel hairpin legs
+Built to the OFFICIAL cut list & assembly (8-Cubby plan, © 2018 Jen Woodhouse).
 
 Design: a stadium-seating record bin. Front tier records sit on the bottom and
 lean against the 10 1/2" shelf divider; the back tier sits on a raised platform
 and leans against the full-height back. Two rows of four cubbies = 8 total.
+
+The ROW DEPTH is parametric: `row_depth=12` reproduces the original plan
+(26 1/4" deep); a smaller value makes a shallower cabinet that protrudes less
+from the wall while keeping both rows and all heights identical.
 
 Every board is a SEPARATE, NAMED part so the assembly can be exploded.
 Units are INCHES. Frame: x = width, y = depth (front->back), z = height.
@@ -34,10 +26,9 @@ import trimesh
 from shapely.geometry import Polygon
 
 # --------------------------------------------------------------------------
-# Parameters (inches) — from the official 8-Cubby cut list
+# Width / height parameters (depth is derived from row_depth, see below)
 # --------------------------------------------------------------------------
 W = 55.25          # overall width  (53 3/4 inner + 2 x 3/4 sides)
-D = 26.25          # overall depth  (front -> back)
 H = 18.50          # overall carcass height (top of back)
 T = 0.75           # plywood thickness
 
@@ -45,15 +36,26 @@ FRONT_H = 7.00         # front panel height
 BOTTOM_RECESS = 1.50   # bottom panel sits 1 1/2" up from the carcass bottom
 SHELF_DIV_H = 10.50    # shelf divider (step wall) height, above bottom panel
 SUPPORT_H = 5.00       # back shelf support height, above bottom panel
-BACK_SHELF_DEPTH = 12.0
-TIER_DEPTH = 12.0      # both tiers are 12" deep (== record divider length)
-DIV_LEN = 12.0         # record divider length (depth)
 DIV_H = 4.75           # record divider height
 CUBBIES_PER_TIER = 4   # -> 3 dividers per tier, 6 total, 8 cubbies
+
+ROW_DEPTH_STD = 12.0     # original plan: each row 12" deep -> 26 1/4" overall
+ROW_DEPTH_COMPACT = 8.0  # shallower: each row 8" deep -> 18 1/4" overall
 
 TWO_BY = 1.5           # actual 2x2 dimension
 LEG_HEIGHT = 28.0      # 28" hairpin legs
 LEG_INSET = 3.0
+
+# Records (12" LP + sleeve ~= 12.5" square) --------------------------------
+RECORD_SIZE = 12.5     # sleeve width & height
+RECORD_T = 0.22        # sleeve thickness
+RECORD_LEAN = 16.0     # lean-back angle from vertical (degrees)
+RECORDS_PER_CUBBY = 6
+RECORD_COLORS = [      # a few sleeve colours to vary the cubbies
+    [196, 62, 55, 255], [63, 106, 148, 255], [222, 178, 74, 255],
+    [86, 130, 96, 255], [150, 96, 148, 255], [70, 74, 82, 255],
+    [201, 118, 66, 255], [120, 160, 168, 255],
+]
 
 # Colours (RGBA) ------------------------------------------------------------
 WOOD = [181, 136, 89, 255]        # plywood faces (records/dividers/shelves)
@@ -61,29 +63,25 @@ WOOD_STRUCT = [150, 110, 68, 255] # carcass panels (slightly darker)
 STEEL = [45, 45, 48, 255]         # hairpin legs
 FRAME = [120, 92, 60, 255]        # 2x2 support frame
 
-# --------------------------------------------------------------------------
-# Derived heights (z = 0 at the carcass bottom edge; legs/floor are negative)
-# --------------------------------------------------------------------------
+# Constant heights (z = 0 at the carcass bottom edge; legs/floor are negative)
 BOT_Z0 = BOTTOM_RECESS            # bottom panel underside
 BOT_Z1 = BOTTOM_RECESS + T        # bottom panel top  (front-tier floor)
-FRONT_TIER_Z = BOT_Z1             # front records sit here
 SHELF_DIV_TOP = BOT_Z1 + SHELF_DIV_H
 SUPPORT_TOP = BOT_Z1 + SUPPORT_H
 PLATFORM_Z0 = SUPPORT_TOP         # back shelf bottom underside
 PLATFORM_Z1 = SUPPORT_TOP + T     # back-tier floor
-BACK_TIER_Z = PLATFORM_Z1
 
 IX0, IX1 = T, W - T               # inner width span (between the sides)
 
-# depth landmarks (y)
-FRONT_FACE = 0.0
-FRONT_INNER = T                   # back face of front panel
-BACK_INNER = D - T                # inner face of back panel
-PLATFORM_FRONT = BACK_INNER - BACK_SHELF_DEPTH        # 13.5
-STEPWALL_Y1 = PLATFORM_FRONT                          # shelf divider back face
-STEPWALL_Y0 = PLATFORM_FRONT - T                      # shelf divider front face
-SUPPORT_Y0 = PLATFORM_FRONT
-SUPPORT_Y1 = PLATFORM_FRONT + T
+AXIS_PERM = np.array([[0, 0, 1, 0],   # world_x = poly_z (thickness)
+                      [1, 0, 0, 0],   # world_y = poly_x (depth)
+                      [0, 1, 0, 0],   # world_z = poly_y (height)
+                      [0, 0, 0, 1]], dtype=float)
+
+
+def overall_depth(row_depth):
+    """Front panel + front row + shelf divider + back row + back panel."""
+    return 3 * T + 2 * row_depth
 
 
 def plate(x0, x1, y0, y1, z0, z1, color=WOOD):
@@ -94,14 +92,8 @@ def plate(x0, x1, y0, y1, z0, z1, color=WOOD):
     return b
 
 
-# Wedge side panel: 26 1/4 (deep) x 18 1/2 (back), sloping to the 7" front -----
-AXIS_PERM = np.array([[0, 0, 1, 0],   # world_x = poly_z (thickness)
-                      [1, 0, 0, 0],   # world_y = poly_x (depth)
-                      [0, 1, 0, 0],   # world_z = poly_y (height)
-                      [0, 0, 0, 1]], dtype=float)
-
-
-def side_panel(x0):
+def side_panel(x0, D):
+    """Wedge side: D deep, 18 1/2" at the back, sloping to the 7" front."""
     poly = Polygon([(0.0, 0.0), (0.0, FRONT_H), (D, H), (D, 0.0)])
     if not poly.is_valid:
         poly = poly.buffer(0)
@@ -117,24 +109,53 @@ def hairpin(cx, cy):
     """One 3-rod hairpin leg (steel), merged into a single part."""
     rods = []
     r, foot = 0.20, 4.0
-    top_z, bot_z = 0.0, -LEG_HEIGHT
     for a in (0.5, 2.6, 4.4):
         fx, fy = cx + foot * np.cos(a), cy + foot * np.sin(a)
         rods.append(trimesh.creation.cylinder(
-            radius=r, segment=[[cx, cy, top_z], [fx, fy, bot_z]]))
-    # a small foot pad at the bottom of each rod keeps it tidy
+            radius=r, segment=[[cx, cy, 0.0], [fx, fy, -LEG_HEIGHT]]))
     leg = trimesh.util.concatenate(rods)
     leg.visual.face_colors = STEEL
     return leg
 
 
-def build_parts():
-    """OrderedDict {part_name: Trimesh}."""
+def record_stack(cx, y_front, z_floor, n, color):
+    """A leaning stack of n record sleeves in one cubby, merged to one mesh.
+    Sleeves stand on z_floor, front edge at y_front, leaning back by RECORD_LEAN."""
+    lean = np.radians(RECORD_LEAN)
+    step = RECORD_T / np.cos(lean) + 0.03      # back offset per sleeve
+    rot = trimesh.transformations.rotation_matrix(-lean, [1, 0, 0])
+    recs = []
+    for i in range(n):
+        r = trimesh.creation.box(extents=(RECORD_SIZE, RECORD_T, RECORD_SIZE))
+        r.apply_translation((0, RECORD_T / 2, RECORD_SIZE / 2))  # corner at origin
+        r.apply_transform(rot)                                   # lean back
+        r.apply_translation((cx, y_front + i * step, z_floor))
+        recs.append(r)
+    stack = trimesh.util.concatenate(recs)
+    stack.visual.face_colors = color
+    return stack
+
+
+def build_parts(row_depth=ROW_DEPTH_STD, with_records=False):
+    """OrderedDict {part_name: Trimesh} for the given per-row depth (inches)."""
+    D = overall_depth(row_depth)
+    div_len = row_depth                        # dividers span the full row depth
+
+    # depth landmarks (y, front -> back)
+    FRONT_FACE = 0.0
+    FRONT_INNER = T                            # back face of front panel
+    BACK_INNER = D - T                         # inner face of back panel
+    STEPWALL_Y0 = FRONT_INNER + row_depth      # shelf divider front face
+    STEPWALL_Y1 = STEPWALL_Y0 + T              # shelf divider back face
+    SUPPORT_Y0 = STEPWALL_Y1                   # support just behind the divider
+    SUPPORT_Y1 = SUPPORT_Y0 + T
+    PLATFORM_FRONT = STEPWALL_Y1               # raised platform starts here
+
     p = OrderedDict()
 
     # --- Carcass ----------------------------------------------------------
-    p["side_left"] = side_panel(0.0)
-    p["side_right"] = side_panel(W - T)
+    p["side_left"] = side_panel(0.0, D)
+    p["side_right"] = side_panel(W - T, D)
     p["back"] = plate(IX0, IX1, BACK_INNER, D, 0.0, H, WOOD_STRUCT)
     p["front"] = plate(IX0, IX1, FRONT_FACE, FRONT_INNER, 0.0, FRONT_H, WOOD_STRUCT)
     p["bottom"] = plate(IX0, IX1, FRONT_INNER, BACK_INNER, BOT_Z0, BOT_Z1, WOOD_STRUCT)
@@ -151,12 +172,25 @@ def build_parts():
     xs = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)[1:-1]
     for j, xc in enumerate(xs, 1):
         p[f"front_divider_{j}"] = plate(
-            xc - T / 2, xc + T / 2, FRONT_INNER, FRONT_INNER + DIV_LEN,
-            FRONT_TIER_Z, FRONT_TIER_Z + DIV_H)
+            xc - T / 2, xc + T / 2, FRONT_INNER, FRONT_INNER + div_len,
+            BOT_Z1, BOT_Z1 + DIV_H)
     for j, xc in enumerate(xs, 1):
         p[f"back_divider_{j}"] = plate(
-            xc - T / 2, xc + T / 2, BACK_INNER - DIV_LEN, BACK_INNER,
-            BACK_TIER_Z, BACK_TIER_Z + DIV_H)
+            xc - T / 2, xc + T / 2, BACK_INNER - div_len, BACK_INNER,
+            PLATFORM_Z1, PLATFORM_Z1 + DIV_H)
+
+    # --- Records leaning in each cubby (optional) ------------------------
+    if with_records:
+        edges = np.linspace(IX0, IX1, CUBBIES_PER_TIER + 1)
+        centers = (edges[:-1] + edges[1:]) / 2
+        for k, cx in enumerate(centers):
+            p[f"records_front_{k+1}"] = record_stack(
+                cx, FRONT_INNER + 0.5, BOT_Z1, RECORDS_PER_CUBBY,
+                RECORD_COLORS[k % len(RECORD_COLORS)])
+        for k, cx in enumerate(centers):
+            p[f"records_back_{k+1}"] = record_stack(
+                cx, PLATFORM_FRONT + 0.5, PLATFORM_Z1, RECORDS_PER_CUBBY,
+                RECORD_COLORS[(k + 4) % len(RECORD_COLORS)])
 
     # --- 2x2 support frame under the bottom (fills the 1 1/2" recess) -----
     fz0, fz1 = 0.0, TWO_BY
@@ -168,7 +202,8 @@ def build_parts():
                              fz0, fz1, FRAME)
     p["frame_back"] = plate(fx0 + TWO_BY, fx1 - TWO_BY, fy1 - TWO_BY, fy1,
                             fz0, fz1, FRAME)
-    for j, xc in enumerate(np.linspace(fx0, fx1, 4)[1:-1], 1):
+    ncross = max(1, int(round((fx1 - fx0) / 18)))    # a cross every ~18"
+    for j, xc in enumerate(np.linspace(fx0, fx1, ncross + 2)[1:-1], 1):
         p[f"frame_cross_{j}"] = plate(xc - TWO_BY / 2, xc + TWO_BY / 2,
                                       fy0 + TWO_BY, fy1 - TWO_BY, fz0, fz1, FRAME)
 
@@ -184,15 +219,15 @@ def build_parts():
     return p
 
 
-def build_scene(parts=None):
-    parts = parts or build_parts()
+def build_scene(parts=None, row_depth=ROW_DEPTH_STD):
+    parts = parts or build_parts(row_depth)
     scene = trimesh.Scene()
     for name, mesh in parts.items():
         scene.add_geometry(mesh, node_name=name, geom_name=name)
     return scene
 
 
-def _export(parts, out):
+def export(parts, out):
     os.makedirs(out, exist_ok=True)
     parts_dir = os.path.join(out, "parts")
     os.makedirs(parts_dir, exist_ok=True)
@@ -205,14 +240,20 @@ def _export(parts, out):
     return combined
 
 
-if __name__ == "__main__":
-    parts = build_parts()
-    out = os.path.join(os.path.dirname(__file__), "..", "models")
-    combined = _export(parts, out)
+def _report(name, parts):
+    combined = trimesh.util.concatenate(list(parts.values()))
+    b = np.round(combined.bounds, 2)
+    print(f"[{name}] {len(parts)} parts  overall(in) W×D×H = "
+          f"{b[1][0]-b[0][0]:.2f} × {b[1][1]-b[0][1]:.2f} × {b[1][2]-b[0][2]:.2f}")
 
-    print(f"Exported {len(parts)} named parts (GLB + STL + OBJ, plus models/parts/*.stl)")
-    print(f"Overall bounds (in): {np.round(combined.bounds, 2).tolist()}")
-    print("Parts (w x d x h):")
-    for name, mesh in parts.items():
-        s = np.round(mesh.bounds[1] - mesh.bounds[0], 2)
-        print(f"  {name:20s} {s[0]:6.2f} x {s[1]:6.2f} x {s[2]:6.2f}")
+
+if __name__ == "__main__":
+    here = os.path.dirname(__file__)
+
+    std = build_parts(ROW_DEPTH_STD)
+    export(std, os.path.join(here, "..", "models"))
+    _report("standard  row=12", std)
+
+    compact = build_parts(ROW_DEPTH_COMPACT)
+    export(compact, os.path.join(here, "..", "models", "compact"))
+    _report("compact   row=8 ", compact)
