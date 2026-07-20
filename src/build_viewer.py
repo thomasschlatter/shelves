@@ -108,6 +108,9 @@ HTML = r"""<!doctype html>
     <button id="btnLegs">Toggle legs</button>
   </div>
   <div class="btns">
+    <button id="btnRoom">Room view</button>
+  </div>
+  <div class="btns">
     <button id="btnAll">Show all</button>
     <button id="btnReset">Reset view</button>
   </div>
@@ -215,16 +218,80 @@ const grid = new THREE.GridHelper(400, 80, 0x2a2f36, 0x1c2026);
 grid.position.y = box.min.y - 0.2;
 scene.add(grid);
 
-// Frame the model
-function frameView() {
-  const dist = radius / Math.sin((camera.fov * Math.PI / 180) / 2) * 0.62;
-  camera.position.set(center.x + dist * 0.75, center.y + dist * 0.55, center.z + dist * 0.9);
-  controls.target.copy(center);
+// ---- Room (toggle) : floor, walls, a table for tabletop pieces, a person ----
+// Model units are INCHES. A person is ~69" (175 cm); a table ~29" (74 cm).
+const room = new THREE.Group();
+room.visible = false;
+scene.add(room);
+const hasLegs = meshes.some(m => m.userData.name.startsWith('leg'));
+const TABLE_H = 29, PERSON_H = 69;
+const modelW = box.max.x - box.min.x, modelD = box.max.z - box.min.z;
+const floorY = hasLegs ? box.min.y : box.min.y - TABLE_H;
+
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x9c7a4d, roughness: 0.8 });
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xb8ad99, roughness: 0.95 });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0xe7e3da, roughness: 1 });
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.position.y = floorY + 0.02;
+floor.receiveShadow = true; room.add(floor);
+
+const WALL_H = 108;
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(600, WALL_H), wallMat);
+backWall.position.set(center.x, floorY + WALL_H / 2, box.min.z - 8);
+backWall.receiveShadow = true; room.add(backWall);
+const sideWall = new THREE.Mesh(new THREE.PlaneGeometry(600, WALL_H), wallMat);
+sideWall.rotation.y = Math.PI / 2;
+sideWall.position.set(box.min.x - 12, floorY + WALL_H / 2, center.z);
+sideWall.receiveShadow = true; room.add(sideWall);
+
+if (!hasLegs) {                                   // a table under a tabletop piece
+  const tw = modelW + 14, td = modelD + 10;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(tw, 1.2, td), woodMat);
+  top.position.set(center.x, box.min.y - 0.6, center.z);
+  top.castShadow = top.receiveShadow = true; room.add(top);
+  const legGeo = new THREE.BoxGeometry(1.6, TABLE_H - 1.2, 1.6);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const tl = new THREE.Mesh(legGeo, woodMat);
+    tl.position.set(center.x + sx * (tw / 2 - 2), floorY + (TABLE_H - 1.2) / 2,
+                    center.z + sz * (td / 2 - 2));
+    tl.castShadow = true; room.add(tl);
+  }
+}
+
+function makePerson(h) {                           // simple scale figure
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x7d8794, roughness: 1 });
+  const u = h / 7.5;
+  const legH = h * 0.47, torsoH = h * 0.30, headR = h * 0.052;
+  for (const sx of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(u * 0.55, legH, u * 0.62), mat);
+    leg.position.set(sx * u * 0.32, legH / 2, 0); leg.castShadow = true; g.add(leg);
+  }
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(u * 1.7, torsoH, u * 0.85), mat);
+  torso.position.y = legH + torsoH / 2; torso.castShadow = true; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(headR, 20, 16), mat);
+  head.position.y = legH + torsoH + headR * 1.3; head.castShadow = true; g.add(head);
+  return g;
+}
+const person = makePerson(PERSON_H);
+person.position.set(box.max.x + 22, floorY, center.z + modelD * 0.2);
+room.add(person);
+
+// Frame the model (wider when the room is shown so the person is in view)
+function frameView(wide) {
+  const f = wide ? 1.5 : 0.62;
+  const dist = radius / Math.sin((camera.fov * Math.PI / 180) / 2) * f;
+  const tgt = wide
+    ? new THREE.Vector3(center.x + radius * 0.6, floorY + radius * 0.4, center.z)
+    : center;
+  camera.position.set(tgt.x + dist * 0.7, tgt.y + dist * 0.45, tgt.z + dist * 0.95);
+  controls.target.copy(tgt);
   camera.near = dist / 100; camera.far = dist * 20;
   camera.updateProjectionMatrix();
   controls.update();
 }
-frameView();
+frameView(false);
 
 // ---- Explode ----
 let explodeAmt = 0;
@@ -289,7 +356,14 @@ bW.onclick = () => {
   for (const mesh of meshes) mesh.material.wireframe = wire;
 };
 document.getElementById('btnAll').onclick = showAll;
-document.getElementById('btnReset').onclick = frameView;
+document.getElementById('btnReset').onclick = () => frameView(room.visible);
+const bRoom = document.getElementById('btnRoom');
+bRoom.onclick = () => {
+  room.visible = !room.visible;
+  bRoom.classList.toggle('active', room.visible);
+  scene.background = new THREE.Color(room.visible ? 0xd7d3ca : 0x0f1114);
+  frameView(room.visible);
+};
 function toggleGroup(prefix) {
   for (const mesh of meshes) {
     if (mesh.userData.name.startsWith(prefix)) {
