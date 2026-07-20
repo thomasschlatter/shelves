@@ -3,9 +3,9 @@ SIMPLE 4X 7" BIN (FLAT)  (35.75" / 90.8 cm wide)
 
 CUT LIST (3/4" / 19 mm plywood):
   qty  part                   inches           centimeters
-  (1) bottom                 34 1/4" x 9"     87.0 x 22.9 cm
+  (1) bottom                 34 1/4" x 13"    87.0 x 33.0 cm
   (1) back                   34 1/4" x 5 1/4" 87.0 x 13.3 cm
   (1) front                  34 1/4" x 5 1/4" 87.0 x 13.3 cm
-  (1) side left              9" x 6"          22.9 x 15.2 cm
-  (1) side right             9" x 6"          22.9 x 15.2 cm
-  (3) divider                7 1/2" x 4 1/2"  19.1 x 11.4 cm
+  (1) side left              13" x 6"         33.0 x 15.2 cm
+  (1) side right             13" x 6"         33.0 x 15.2 cm
+  (3) divider                11 1/2" x 4 1/2" 29.2 x 11.4 cm

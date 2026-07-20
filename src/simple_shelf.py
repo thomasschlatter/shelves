@@ -22,12 +22,14 @@ import cutsheet
 T = rs.T                 # 3/4" plywood
 BAYS = 4                 # 4 compartments
 BAY_W = 8.0              # clear width per compartment (7 1/4" sleeve + room)
-DEPTH = 9.0              # front-to-back
+DEPTH = 9.0              # slanted: front-to-back
+FLAT_DEPTH = 13.0        # flat version can protrude more (holds more 45s)
 BACK_H = 8.0             # slanted: back panel height
 FRONT_H = 4.0            # slanted: front panel height (lower, to flip through)
 FLAT_H = 6.0             # flat version: front == back height
 DIV_H = 4.5              # divider height
-REC_N = 8                # records shown per compartment
+REC_N = 8                # records shown per compartment (slanted)
+FLAT_REC_N = 18          # deeper flat bin holds more
 
 W = BAYS * BAY_W + (BAYS - 1) * T + 2 * T     # overall width
 IX0, IX1 = T, W - T
@@ -35,9 +37,9 @@ IX0, IX1 = T, W - T
 AXIS_PERM = rs.AXIS_PERM
 
 
-def side(x0, front_h, back_h):
-    """Side panel: DEPTH deep. Wedge if front_h != back_h, rectangle if equal."""
-    poly = Polygon([(0, 0), (0, front_h), (DEPTH, back_h), (DEPTH, 0)])
+def side(x0, front_h, back_h, depth):
+    """Side panel: `depth` deep. Wedge if front_h != back_h, rectangle if equal."""
+    poly = Polygon([(0, 0), (0, front_h), (depth, back_h), (depth, 0)])
     m = trimesh.creation.extrude_polygon(poly, height=T)
     m.apply_transform(AXIS_PERM)
     m.apply_translation(-m.bounds[0])
@@ -46,40 +48,40 @@ def side(x0, front_h, back_h):
     return m
 
 
-def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H):
+def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H,
+                depth=DEPTH, rec_n=REC_N):
     p = OrderedDict()
-    p["side_left"] = side(0.0, front_h, back_h)
-    p["side_right"] = side(W - T, front_h, back_h)
-    p["bottom"] = rs.plate(IX0, IX1, 0, DEPTH, 0, T, rs.WOOD_STRUCT)
-    p["back"] = rs.plate(IX0, IX1, DEPTH - T, DEPTH, T, back_h, rs.WOOD_STRUCT)
+    p["side_left"] = side(0.0, front_h, back_h, depth)
+    p["side_right"] = side(W - T, front_h, back_h, depth)
+    p["bottom"] = rs.plate(IX0, IX1, 0, depth, 0, T, rs.WOOD_STRUCT)
+    p["back"] = rs.plate(IX0, IX1, depth - T, depth, T, back_h, rs.WOOD_STRUCT)
     p["front"] = rs.plate(IX0, IX1, 0, T, T, front_h, rs.WOOD_STRUCT)
 
     edges = np.linspace(IX0, IX1, BAYS + 1)
     for i, xc in enumerate(edges[1:-1], 1):
-        p[f"divider_{i}"] = rs.plate(xc - T / 2, xc + T / 2, T, DEPTH - T,
+        p[f"divider_{i}"] = rs.plate(xc - T / 2, xc + T / 2, T, depth - T,
                                      T, T + DIV_H, rs.WOOD_STRUCT)
 
     if with_records:
         centers = (edges[:-1] + edges[1:]) / 2
         for k, cx in enumerate(centers):
             p[f"records_{k+1}"] = rs.record_stack(
-                cx, T + 0.4, T, REC_N,
+                cx, T + 0.4, T, rec_n,
                 rs.RECORD_COLORS[k % len(rs.RECORD_COLORS)], rs.RECORD7_SIZE)
     return p
 
 
-def emit(slug, label, front_h, back_h):
+def emit(slug, label, front_h, back_h, depth=DEPTH, rec_n=REC_N):
     here = os.path.dirname(__file__)
-    parts = build_parts(front_h=front_h, back_h=back_h)
+    parts = build_parts(front_h=front_h, back_h=back_h, depth=depth)
     rs.export(parts, os.path.join(here, "..", "models", slug))
-    b = np.round(trimesh.util.concatenate(list(parts.values())).bounds, 2)
     top = max(front_h, back_h)
-    print(f"[{label}] {len(parts)} parts  "
-          f"W×D×H = {b[1][0]-b[0][0]:.2f} × {b[1][1]-b[0][1]:.2f} × "
-          f"{top:.2f} in  ({(b[1][0]-b[0][0])*2.54:.0f} cm wide)")
+    print(f"[{label}] {len(parts)} parts  W×D×H = {W:.2f} × {depth:.2f} × "
+          f"{top:.2f} in  ({W*2.54:.0f} × {depth*2.54:.0f} × {top*2.54:.0f} cm)")
 
-    rec = build_parts(with_records=True, front_h=front_h, back_h=back_h)
-    bv.write_viewer(rec, f"{label} · {W:.2f} × {DEPTH} × {top:.1f} in",
+    rec = build_parts(with_records=True, front_h=front_h, back_h=back_h,
+                      depth=depth, rec_n=rec_n)
+    bv.write_viewer(rec, f"{label} · {W:.2f} × {depth} × {top:.1f} in",
                     f"viewer_{slug}.html")
     render.hero(rec, 26, -60, f"hero_{slug}.png")
     cutsheet.draw(parts, f'{label} — Cut Diagram', f"cut_diagram_{slug}.png", unit="in")
@@ -92,8 +94,10 @@ def emit(slug, label, front_h, back_h):
 
 
 def main():
-    emit("simple_7inch", "Simple 4x 7\" bin (slanted)", FRONT_H, BACK_H)
-    emit("simple_7inch_flat", "Simple 4x 7\" bin (flat)", FLAT_H, FLAT_H)
+    emit("simple_7inch", "Simple 4x 7\" bin (slanted)", FRONT_H, BACK_H,
+         depth=DEPTH, rec_n=REC_N)
+    emit("simple_7inch_flat", "Simple 4x 7\" bin (flat)", FLAT_H, FLAT_H,
+         depth=FLAT_DEPTH, rec_n=FLAT_REC_N)
 
 
 if __name__ == "__main__":
