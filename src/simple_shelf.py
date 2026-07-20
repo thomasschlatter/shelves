@@ -39,8 +39,8 @@ FLAT_REC_N = 22          # bin depth holds a good stack
 AXIS_PERM = rs.AXIS_PERM
 
 
-def overall_width(bays):
-    return bays * BAY_W + (bays - 1) * T + 2 * T
+def overall_width(bays, bay_w=BAY_W):
+    return bays * bay_w + (bays - 1) * T + 2 * T
 
 
 def side(x0, front_h, back_h, depth):
@@ -55,8 +55,8 @@ def side(x0, front_h, back_h, depth):
 
 
 def build_parts(with_records=False, front_h=FRONT_H, back_h=BACK_H,
-                depth=DEPTH, rec_n=REC_N, bays=BAYS):
-    W = overall_width(bays)
+                depth=DEPTH, rec_n=REC_N, bays=BAYS, bay_w=BAY_W):
+    W = overall_width(bays, bay_w)
     ix0, ix1 = T, W - T
     p = OrderedDict()
     p["side_left"] = side(0.0, front_h, back_h, depth)

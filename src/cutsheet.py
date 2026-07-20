@@ -63,7 +63,7 @@ def sheet_pieces(parts):
     return out
 
 
-def _pack_guillotine(pieces):
+def _pack_guillotine(pieces, sheet_l=SHEET_L, sheet_w=SHEET_W):
     """Group pieces into full-length strips that share a common width, so the
     sheet is cut by a few rips (one per strip) followed by crosscuts. Pieces
     may rotate to match a strip's width. Returns (placed, nsheets); each piece
@@ -74,7 +74,7 @@ def _pack_guillotine(pieces):
         placed = False
         for s in strips:                       # join a strip of matching width
             for h, l in ((a, b), (b, a)):
-                if abs(s["h"] - h) < 1e-6 and s["used"] + l + GAP <= SHEET_L + 1e-6:
+                if abs(s["h"] - h) < 1e-6 and s["used"] + l + GAP <= sheet_l + 1e-6:
                     s["items"].append((pc, l, h)); s["used"] += l + GAP
                     placed = True
                     break
@@ -82,12 +82,14 @@ def _pack_guillotine(pieces):
                 break
         if not placed:                          # new strip; width = piece's short
             h, l = min(a, b), max(a, b)
+            if l > sheet_l + 1e-6:              # too long even alone -> won't fit
+                h, l = max(a, b), min(a, b)
             strips.append({"h": h, "used": l + GAP, "items": [(pc, l, h)]})
 
     strips.sort(key=lambda s: -s["h"])          # tidy: widest strips first
     sheets, y = 0, 0.0
     for s in strips:
-        if sheets == 0 or y + s["h"] > SHEET_W + 1e-6:
+        if sheets == 0 or y + s["h"] > sheet_w + 1e-6:
             sheets += 1; y = 0.0
         s["y"], s["sheet"] = y, sheets - 1
         y += s["h"] + GAP

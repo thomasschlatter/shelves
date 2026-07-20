@@ -1,0 +1,16 @@
+COMBINED — board-bin pieces (no bottom) + slanted 4x bin
+========================================================
+
+CUT LIST (3/4" / 19 mm plywood):
+  qty  part                   inches           centimeters
+  (1) bin-back               48" x 5 1/4"     122.0 x 13.3 cm
+  (1) bin-front              48" x 5 1/4"     122.0 x 13.3 cm
+  (1) shelf-bottom           34 1/4" x 9"     87.0 x 22.9 cm
+  (1) shelf-back             34 1/4" x 7 1/4" 87.0 x 18.4 cm
+  (1) shelf-front            34 1/4" x 3 1/4" 87.0 x 8.3 cm
+  (1) bin-side left          20 3/11" x 6"    51.5 x 15.2 cm
+  (1) bin-side right         20 3/11" x 6"    51.5 x 15.2 cm
+  (4) bin-divider            18 7/9" x 4 1/2" 47.7 x 11.4 cm
+  (1) shelf-side left        9" x 8"          22.9 x 20.3 cm
+  (1) shelf-side right       9" x 8"          22.9 x 20.3 cm
+  (3) shelf-divider          7 1/2" x 4 1/2"  19.1 x 11.4 cm
